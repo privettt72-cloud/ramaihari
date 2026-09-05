@@ -1,4 +1,3 @@
-
 import Link from "next/link";
 import { Metadata } from "next";
 import { supabaseServer } from "@/lib/supabase-server";
@@ -1051,9 +1050,16 @@ export default async function TrendDetailPage({
 
         </div>
 
+        {/* =========================
+            CREDIT
+        ========================= */}
+
+        <div className="mt-6 pb-4 text-right text-xs text-zinc-400">
+          Imbaa jr
+        </div>
+
       </div>
 
     </main>
   );
 }
-
