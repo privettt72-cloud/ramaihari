@@ -11,7 +11,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     .order("updated_at", { ascending: false });
 
   const trendUrls: MetadataRoute.Sitemap =
-    (trends ?? []).map((trend) => ({
+    (trends ?? []).filter((trend) => trend.keyword.length <= 80).map((trend) => ({
       url: `${baseUrl}/trending/${encodeURIComponent(
         trend.keyword
       )}`,
