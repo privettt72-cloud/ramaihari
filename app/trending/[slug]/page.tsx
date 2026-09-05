@@ -1,7 +1,8 @@
-
 import Link from "next/link";
 import { Metadata } from "next";
 import { supabaseServer } from "@/lib/supabase-server";
+
+const SITE_URL = "https://ramaihari.com";
 
 type Trend = {
   id: string;
@@ -151,6 +152,11 @@ async function getSnapshots(
   return (data ?? []) as Snapshot[];
 }
 
+/* =====================================================
+   SEO METADATA
+   HANYA BAGIAN INI YANG DIUBAH
+   ===================================================== */
+
 export async function generateMetadata({
   params,
 }: {
@@ -169,10 +175,14 @@ export async function generateMetadata({
 
   if (!trend) {
     return {
+      metadataBase: new URL(SITE_URL),
+
       title:
         "Trend Belum Ditemukan | RAMAIHARI",
+
       description:
         "Trend tersebut belum tersedia di RAMAIHARI.",
+
       robots: {
         index: false,
         follow: false,
@@ -193,39 +203,96 @@ export async function generateMetadata({
     `Pantau trend ${trend.title} di Google Indonesia. Lihat RAMAI Score, traffic, posisi trending, pergerakan ranking, dan berita terkait di RAMAIHARI.`;
 
   const canonicalUrl =
-    `https://ramaihari.com/trending/${encodeURIComponent(
+    `${SITE_URL}/trending/${encodeURIComponent(
       trend.keyword
     )}`;
 
+  const keywords = [
+    trend.keyword,
+    `${trend.keyword} hari ini`,
+    `trend ${trend.keyword}`,
+    `berita ${trend.keyword}`,
+    `trend ${category}`,
+    "trend Indonesia",
+    "Google Trends Indonesia",
+    "RAMAIHARI",
+  ];
+
   return {
+    metadataBase:
+      new URL(SITE_URL),
+
     title,
+
     description,
 
+    keywords,
+
+    authors: [
+      {
+        name: "RAMAIHARI",
+        url: SITE_URL,
+      },
+    ],
+
+    creator: "RAMAIHARI",
+
+    publisher: "RAMAIHARI",
+
     alternates: {
-      canonical: canonicalUrl,
+      canonical:
+        canonicalUrl,
     },
 
     robots: {
       index: true,
       follow: true,
+
+      googleBot: {
+        index: true,
+        follow: true,
+        "max-image-preview":
+          "large",
+        "max-snippet": -1,
+        "max-video-preview": -1,
+      },
     },
 
     openGraph: {
       title,
+
       description,
+
       url: canonicalUrl,
-      siteName: "RAMAIHARI",
+
+      siteName:
+        "RAMAIHARI",
+
       locale: "id_ID",
+
       type: "article",
 
       publishedTime:
         trend.news_published_at ??
-        undefined,
+        trend.created_at,
+
+      modifiedTime:
+        trend.updated_at,
+
+      authors: [
+        "RAMAIHARI",
+      ],
+
+      section: category,
+
+      tags: keywords,
 
       images: trend.picture
         ? [
             {
               url: trend.picture,
+              width: 1200,
+              height: 630,
               alt: trend.title,
             },
           ]
@@ -238,6 +305,7 @@ export async function generateMetadata({
         : "summary",
 
       title,
+
       description,
 
       images: trend.picture
@@ -352,9 +420,6 @@ export default async function TrendDetailPage({
     trend.source ??
     "Sumber berita";
 
-  // Hanya gunakan URL artikel publisher.
-  // Jangan fallback ke source_url karena source_url
-  // bisa berupa URL Google Trends.
   const newsUrl =
     trend.news_url;
 
@@ -880,4 +945,3 @@ export default async function TrendDetailPage({
     </main>
   );
 }
-
