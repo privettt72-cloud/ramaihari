@@ -70,6 +70,9 @@ export default function Home() {
   const [error, setError] =
     useState("");
 
+  const [activeCategory, setActiveCategory] =
+    useState("Semua");
+
   useEffect(() => {
     async function loadTrends() {
       try {
@@ -118,15 +121,28 @@ export default function Home() {
   const fastestRising =
     data?.fastestRising || [];
 
-  function scrollToCategory(categoryId: string) {
-    const element = document.getElementById(
-      `kategori-${categoryId}`
-    );
+  const filteredTrends =
+    activeCategory === "Semua"
+      ? trends
+      : trends.filter(
+          (trend) =>
+            trend.category ===
+            activeCategory
+        );
 
-    element?.scrollIntoView({
-      behavior: "smooth",
-      block: "start",
-    });
+  function selectCategory(
+    category: string
+  ) {
+    setActiveCategory(category);
+
+    setTimeout(() => {
+      document
+        .getElementById("trending")
+        ?.scrollIntoView({
+          behavior: "smooth",
+          block: "start",
+        });
+    }, 50);
   }
 
   return (
@@ -148,14 +164,13 @@ export default function Home() {
             <button
               type="button"
               onClick={() =>
-                document
-                  .getElementById("trending")
-                  ?.scrollIntoView({
-                    behavior: "smooth",
-                    block: "start",
-                  })
+                selectCategory("Semua")
               }
-              className="transition hover:text-orange-500"
+              className={`transition hover:text-orange-500 ${
+                activeCategory === "Semua"
+                  ? "font-bold text-orange-500"
+                  : ""
+              }`}
             >
               Trending
             </button>
@@ -163,9 +178,13 @@ export default function Home() {
             <button
               type="button"
               onClick={() =>
-                scrollToCategory("berita")
+                selectCategory("Berita")
               }
-              className="transition hover:text-orange-500"
+              className={`transition hover:text-orange-500 ${
+                activeCategory === "Berita"
+                  ? "font-bold text-orange-500"
+                  : ""
+              }`}
             >
               Berita
             </button>
@@ -173,9 +192,13 @@ export default function Home() {
             <button
               type="button"
               onClick={() =>
-                scrollToCategory("hiburan")
+                selectCategory("Hiburan")
               }
-              className="transition hover:text-orange-500"
+              className={`transition hover:text-orange-500 ${
+                activeCategory === "Hiburan"
+                  ? "font-bold text-orange-500"
+                  : ""
+              }`}
             >
               Hiburan
             </button>
@@ -183,9 +206,13 @@ export default function Home() {
             <button
               type="button"
               onClick={() =>
-                scrollToCategory("olahraga")
+                selectCategory("Olahraga")
               }
-              className="transition hover:text-orange-500"
+              className={`transition hover:text-orange-500 ${
+                activeCategory === "Olahraga"
+                  ? "font-bold text-orange-500"
+                  : ""
+              }`}
             >
               Olahraga
             </button>
@@ -193,9 +220,13 @@ export default function Home() {
             <button
               type="button"
               onClick={() =>
-                scrollToCategory("gaming")
+                selectCategory("Gaming")
               }
-              className="transition hover:text-orange-500"
+              className={`transition hover:text-orange-500 ${
+                activeCategory === "Gaming"
+                  ? "font-bold text-orange-500"
+                  : ""
+              }`}
             >
               Gaming
             </button>
@@ -306,118 +337,187 @@ export default function Home() {
                     </p>
 
                     <h2 className="mt-1 text-2xl font-black sm:text-3xl">
-                      🔥 Trending Sekarang
+                      🔥{" "}
+                      {activeCategory ===
+                      "Semua"
+                        ? "Trending Sekarang"
+                        : `Trending ${activeCategory}`}
                     </h2>
 
                     <p className="mt-1 text-sm text-zinc-500">
-                      Topik yang sedang ramai
-                      dicari di Indonesia.
+                      {activeCategory ===
+                      "Semua"
+                        ? "Topik yang sedang ramai dicari di Indonesia."
+                        : `Topik ${activeCategory.toLowerCase()} yang sedang ramai dicari di Indonesia.`}
                     </p>
                   </div>
 
                   <div className="hidden rounded-full bg-zinc-100 px-3 py-1.5 text-xs font-semibold text-zinc-600 sm:block">
-                    {data.total} topik
+                    {filteredTrends.length}{" "}
+                    topik
                   </div>
                 </div>
 
-                <div className="grid gap-4 md:grid-cols-2">
-                  {trends.map(
-                    (trend) => (
-                      <article
-                        key={
-                          trend.keyword
+                {/* CATEGORY FILTER */}
+                <div className="mb-6 flex flex-wrap gap-2">
+                  {[
+                    "Semua",
+                    "Berita",
+                    "Hiburan",
+                    "Olahraga",
+                    "Gaming",
+                  ].map(
+                    (category) => (
+                      <button
+                        key={category}
+                        type="button"
+                        onClick={() =>
+                          selectCategory(
+                            category
+                          )
                         }
-                        className="group overflow-hidden rounded-3xl border border-zinc-200 bg-white transition hover:-translate-y-0.5 hover:border-orange-200 hover:shadow-lg"
+                        className={`rounded-full px-4 py-2 text-sm font-bold transition ${
+                          activeCategory ===
+                          category
+                            ? "bg-orange-500 text-white shadow-sm"
+                            : "bg-white text-zinc-600 border border-zinc-200 hover:border-orange-300 hover:text-orange-500"
+                        }`}
                       >
-                        <div className="flex gap-4 p-5">
-                          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-zinc-100 text-sm font-black text-zinc-500">
-                            {trend.rank}
-                          </div>
-
-                          {trend.picture && (
-                            <div className="hidden h-20 w-24 shrink-0 overflow-hidden rounded-2xl bg-zinc-100 sm:block">
-                              <img
-                                src={
-                                  trend.picture
-                                }
-                                alt={
-                                  trend.title
-                                }
-                                className="h-full w-full object-cover transition duration-300 group-hover:scale-105"
-                              />
-                            </div>
-                          )}
-
-                          <div className="min-w-0 flex-1">
-                            <div className="flex flex-wrap items-center gap-2">
-                              <span className="rounded-full bg-orange-50 px-2.5 py-1 text-xs font-bold text-orange-600">
-                                {
-                                  trend.category
-                                }
-                              </span>
-
-                              {trend.trafficGrowth &&
-                                trend.trafficGrowth >
-                                  0 && (
-                                  <span className="rounded-full bg-green-50 px-2.5 py-1 text-xs font-bold text-green-600">
-                                    ↑{" "}
-                                    {
-                                      trend.trafficGrowth
-                                    }
-                                    %
-                                  </span>
-                                )}
-                            </div>
-
-                            <h3 className="mt-2 text-lg font-black capitalize leading-snug">
-                              {
-                                trend.title
-                              }
-                            </h3>
-
-                            <div className="mt-3 flex flex-wrap items-center gap-3 text-xs text-zinc-500">
-                              <span>
-                                🔎{" "}
-                                {
-                                  trend.traffic
-                                }{" "}
-                                pencarian
-                              </span>
-
-                              <span>
-                                RAMAI{" "}
-                                {
-                                  trend.trendScore
-                                }
-                              </span>
-                            </div>
-
-                            {trend.newsTitle && (
-                              <p className="mt-3 line-clamp-2 text-sm leading-6 text-zinc-600">
-                                {
-                                  trend.newsTitle
-                                }
-                              </p>
-                            )}
-
-                            {trend.newsUrl && (
-                              <a
-                                href={
-                                  trend.newsUrl
-                                }
-                                target="_blank"
-                                rel="noreferrer"
-                                className="mt-3 inline-flex text-xs font-bold text-orange-500 hover:text-orange-600"
-                              >
-                                Baca berita →
-                              </a>
-                            )}
-                          </div>
-                        </div>
-                      </article>
+                        {category}
+                      </button>
                     )
                   )}
                 </div>
+
+                {filteredTrends.length ===
+                0 ? (
+                  <div className="rounded-3xl border border-zinc-200 bg-white p-8 text-center">
+                    <div className="text-4xl">
+                      🔎
+                    </div>
+
+                    <h3 className="mt-3 text-lg font-black">
+                      Belum ada topik{" "}
+                      {activeCategory}
+                    </h3>
+
+                    <p className="mt-1 text-sm text-zinc-500">
+                      Belum ada trend kategori
+                      ini dalam radar hari ini.
+                    </p>
+
+                    <button
+                      type="button"
+                      onClick={() =>
+                        selectCategory(
+                          "Semua"
+                        )
+                      }
+                      className="mt-4 rounded-full bg-orange-500 px-4 py-2 text-sm font-bold text-white transition hover:bg-orange-600"
+                    >
+                      Lihat semua trending
+                    </button>
+                  </div>
+                ) : (
+                  <div className="grid gap-4 md:grid-cols-2">
+                    {filteredTrends.map(
+                      (trend) => (
+                        <article
+                          key={
+                            trend.keyword
+                          }
+                          className="group overflow-hidden rounded-3xl border border-zinc-200 bg-white transition hover:-translate-y-0.5 hover:border-orange-200 hover:shadow-lg"
+                        >
+                          <div className="flex gap-4 p-5">
+                            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-zinc-100 text-sm font-black text-zinc-500">
+                              {trend.rank}
+                            </div>
+
+                            {trend.picture && (
+                              <div className="hidden h-20 w-24 shrink-0 overflow-hidden rounded-2xl bg-zinc-100 sm:block">
+                                <img
+                                  src={
+                                    trend.picture
+                                  }
+                                  alt={
+                                    trend.title
+                                  }
+                                  className="h-full w-full object-cover transition duration-300 group-hover:scale-105"
+                                />
+                              </div>
+                            )}
+
+                            <div className="min-w-0 flex-1">
+                              <div className="flex flex-wrap items-center gap-2">
+                                <span className="rounded-full bg-orange-50 px-2.5 py-1 text-xs font-bold text-orange-600">
+                                  {
+                                    trend.category
+                                  }
+                                </span>
+
+                                {trend.trafficGrowth &&
+                                  trend.trafficGrowth >
+                                    0 && (
+                                    <span className="rounded-full bg-green-50 px-2.5 py-1 text-xs font-bold text-green-600">
+                                      ↑{" "}
+                                      {
+                                        trend.trafficGrowth
+                                      }
+                                      %
+                                    </span>
+                                  )}
+                              </div>
+
+                              <h3 className="mt-2 text-lg font-black capitalize leading-snug">
+                                {
+                                  trend.title
+                                }
+                              </h3>
+
+                              <div className="mt-3 flex flex-wrap items-center gap-3 text-xs text-zinc-500">
+                                <span>
+                                  🔎{" "}
+                                  {
+                                    trend.traffic
+                                  }{" "}
+                                  pencarian
+                                </span>
+
+                                <span>
+                                  RAMAI{" "}
+                                  {
+                                    trend.trendScore
+                                  }
+                                </span>
+                              </div>
+
+                              {trend.newsTitle && (
+                                <p className="mt-3 line-clamp-2 text-sm leading-6 text-zinc-600">
+                                  {
+                                    trend.newsTitle
+                                  }
+                                </p>
+                              )}
+
+                              {trend.newsUrl && (
+                                <a
+                                  href={
+                                    trend.newsUrl
+                                  }
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  className="mt-3 inline-flex text-xs font-bold text-orange-500 hover:text-orange-600"
+                                >
+                                  Baca berita →
+                                </a>
+                              )}
+                            </div>
+                          </div>
+                        </article>
+                      )
+                    )}
+                  </div>
+                )}
               </section>
 
               {/* FASTEST RISING */}
@@ -582,32 +682,26 @@ export default function Home() {
                     {
                       name: "Hiburan",
                       icon: "🎬",
-                      id: "hiburan",
                     },
                     {
                       name: "Gaming",
                       icon: "🎮",
-                      id: "gaming",
                     },
                     {
                       name: "Olahraga",
                       icon: "⚽",
-                      id: "olahraga",
                     },
                     {
                       name: "Musik",
                       icon: "🎵",
-                      id: "musik",
                     },
                     {
                       name: "Berita",
                       icon: "📰",
-                      id: "berita",
                     },
                     {
                       name: "Teknologi",
                       icon: "💻",
-                      id: "teknologi",
                     },
                   ].map(
                     (category) => {
@@ -619,13 +713,17 @@ export default function Home() {
                         ).length;
 
                       return (
-                        <a
+                        <button
                           key={
                             category.name
                           }
-                          id={`kategori-${category.id}`}
-                          href={`#kategori-${category.id}`}
-                          className="group rounded-3xl border border-zinc-200 bg-white p-5 transition hover:-translate-y-0.5 hover:border-orange-200 hover:shadow-md"
+                          type="button"
+                          onClick={() =>
+                            selectCategory(
+                              category.name
+                            )
+                          }
+                          className="group rounded-3xl border border-zinc-200 bg-white p-5 text-left transition hover:-translate-y-0.5 hover:border-orange-200 hover:shadow-md"
                         >
                           <div className="text-3xl">
                             {
@@ -643,7 +741,7 @@ export default function Home() {
                             {count} topik
                             ramai
                           </p>
-                        </a>
+                        </button>
                       );
                     }
                   )}
