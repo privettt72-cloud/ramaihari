@@ -753,32 +753,47 @@ export default async function TrendDetailPage({
             Kenapa {trend.title} sedang ramai?
           </h2>
 
-          <div className="mt-4 max-w-4xl space-y-4 text-base leading-7 text-zinc-600">
+        <div className="mt-4 max-w-4xl space-y-4 text-base leading-7 text-zinc-600">
 
-            <p>
-              {trendExplanation}
-            </p>
+  <p>
+    {trendExplanation}
+  </p>
 
-            <p>
-              {movementText}
-            </p>
+  <p>
+    Saat ini topik{" "}
+    <strong className="text-zinc-800">
+      {trend.title}
+    </strong>{" "}
+    berada di posisi{" "}
+    <strong className="text-zinc-800">
+      #{trend.trend_rank ?? "-"}
+    </strong>{" "}
+    dengan traffic{" "}
+    <strong className="text-zinc-800">
+      {trend.traffic ?? "-"}
+    </strong>
+    . RAMAI Score yang tercatat adalah{" "}
+    <strong className="text-orange-500">
+      {score}
+    </strong>
+    .
+  </p>
 
-            {trend.news_title && (
-              <p>
-                Berita terkait yang tercatat
-                berasal dari{" "}
-                <strong>
-                  {newsSource}
-                </strong>
-                , dengan judul{" "}
-                <strong>
-                  {trend.news_title}
-                </strong>
-                .
-              </p>
-            )}
+  <p>
+    {movementText}
+  </p>
 
-          </div>
+{trend.news_title && ( <p>
+Perhatian terhadap topik ini juga berkaitan
+dengan berita{" "} <strong className="text-zinc-800">
+{trend.news_title} </strong>
+{" "}yang tercatat dari{" "} <strong className="text-zinc-800">
+{newsSource} </strong>
+. </p>
+)}
+
+</div>
+
 
           <div className="mt-6 grid gap-4 md:grid-cols-3">
 
