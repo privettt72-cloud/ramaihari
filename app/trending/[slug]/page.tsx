@@ -1,3 +1,4 @@
+
 import Link from "next/link";
 import { Metadata } from "next";
 import { supabaseServer } from "@/lib/supabase-server";
@@ -150,6 +151,33 @@ async function getSnapshots(
   }
 
   return (data ?? []) as Snapshot[];
+}
+
+async function getRelatedTrends(
+  keyword: string
+) {
+  const { data, error } =
+    await supabaseServer
+      .from("trends")
+      .select(
+        "keyword, title, category, traffic"
+      )
+      .neq("keyword", keyword)
+      .order("updated_at", {
+        ascending: false,
+      })
+      .limit(6);
+
+  if (error) {
+    console.error(
+      "Gagal mengambil trend terkait:",
+      error
+    );
+
+    return [];
+  }
+
+  return data ?? [];
 }
 
 /* =====================================================
@@ -363,6 +391,11 @@ export default async function TrendDetailPage({
 
   const snapshots =
     await getSnapshots(trend.id);
+
+  const relatedTrends =
+    await getRelatedTrends(
+      trend.keyword
+    );
 
   const score = getScore(
     trend.trend_score,
@@ -753,47 +786,52 @@ export default async function TrendDetailPage({
             Kenapa {trend.title} sedang ramai?
           </h2>
 
-        <div className="mt-4 max-w-4xl space-y-4 text-base leading-7 text-zinc-600">
+          <div className="mt-4 max-w-4xl space-y-4 text-base leading-7 text-zinc-600">
 
-  <p>
-    {trendExplanation}
-  </p>
+            <p>
+              {trendExplanation}
+            </p>
 
-  <p>
-    Saat ini topik{" "}
-    <strong className="text-zinc-800">
-      {trend.title}
-    </strong>{" "}
-    berada di posisi{" "}
-    <strong className="text-zinc-800">
-      #{trend.trend_rank ?? "-"}
-    </strong>{" "}
-    dengan traffic{" "}
-    <strong className="text-zinc-800">
-      {trend.traffic ?? "-"}
-    </strong>
-    . RAMAI Score yang tercatat adalah{" "}
-    <strong className="text-orange-500">
-      {score}
-    </strong>
-    .
-  </p>
+            <p>
+              Saat ini topik{" "}
+              <strong className="text-zinc-800">
+                {trend.title}
+              </strong>{" "}
+              berada di posisi{" "}
+              <strong className="text-zinc-800">
+                #{trend.trend_rank ?? "-"}
+              </strong>{" "}
+              dengan traffic{" "}
+              <strong className="text-zinc-800">
+                {trend.traffic ?? "-"}
+              </strong>
+              . RAMAI Score yang tercatat adalah{" "}
+              <strong className="text-orange-500">
+                {score}
+              </strong>
+              .
+            </p>
 
-  <p>
-    {movementText}
-  </p>
+            <p>
+              {movementText}
+            </p>
 
-{trend.news_title && ( <p>
-Perhatian terhadap topik ini juga berkaitan
-dengan berita{" "} <strong className="text-zinc-800">
-{trend.news_title} </strong>
-{" "}yang tercatat dari{" "} <strong className="text-zinc-800">
-{newsSource} </strong>
-. </p>
-)}
+            {trend.news_title && (
+              <p>
+                Perhatian terhadap topik ini juga berkaitan
+                dengan berita{" "}
+                <strong className="text-zinc-800">
+                  {trend.news_title}
+                </strong>{" "}
+                yang tercatat dari{" "}
+                <strong className="text-zinc-800">
+                  {newsSource}
+                </strong>
+                .
+              </p>
+            )}
 
-</div>
-
+          </div>
 
           <div className="mt-6 grid gap-4 md:grid-cols-3">
 
@@ -934,6 +972,64 @@ dengan berita{" "} <strong className="text-zinc-800">
         </section>
 
         {/* =========================
+            TREND LAINNYA
+        ========================= */}
+
+        {relatedTrends.length > 0 && (
+          <section className="mt-6 rounded-3xl border border-zinc-200 bg-white p-6 md:p-8">
+
+            <div className="text-sm font-bold uppercase tracking-wider text-orange-500">
+              Trend lainnya
+            </div>
+
+            <h2 className="mt-2 text-2xl font-black">
+              Topik yang sedang ramai
+            </h2>
+
+            <div className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+
+              {relatedTrends.map(
+                (relatedTrend) => (
+                  <Link
+                    key={relatedTrend.keyword}
+                    href={`/trending/${encodeURIComponent(
+                      relatedTrend.keyword
+                    )}`}
+                    className="rounded-2xl border border-zinc-200 bg-zinc-50 p-5 transition hover:-translate-y-0.5 hover:border-orange-300 hover:bg-white hover:shadow-md"
+                  >
+
+                    <div className="text-xs font-bold uppercase tracking-wider text-zinc-400">
+                      {relatedTrend.category ??
+                        "Berita"}
+                    </div>
+
+                    <div className="mt-2 text-lg font-black">
+                      {relatedTrend.title}
+                    </div>
+
+                    <div className="mt-3 text-sm text-zinc-500">
+                      Traffic{" "}
+                      <span className="font-bold text-zinc-700">
+                        {relatedTrend.traffic ??
+                          "-"}
+                      </span>
+                    </div>
+
+                  </Link>
+                )
+              )}
+
+            </div>
+
+            <div className="mt-5 text-xs text-zinc-400">
+              Jelajahi topik lain yang sedang
+              dipantau RAMAIHARI.
+            </div>
+
+          </section>
+        )}
+
+        {/* =========================
             FOOTER INFO
         ========================= */}
 
@@ -960,3 +1056,4 @@ dengan berita{" "} <strong className="text-zinc-800">
     </main>
   );
 }
+
