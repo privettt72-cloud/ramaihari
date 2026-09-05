@@ -1263,11 +1263,17 @@ async function resolveGoogleNewsUrl(
     }
 
     const responseText =
-  await rpcResponse.text();
+      await rpcResponse.text();
 
-if (!responseText) {
-  return null;
-}
+      console.log(
+  "GOOGLE NEWS RPC RESPONSE:",
+  responseText.slice(0, 3000)
+);
+
+    if (!responseText) {
+      return null;
+    }
+
     /**
      * STEP 6
      * Cari garturlres.
