@@ -1370,7 +1370,7 @@ async function resolveGoogleNewsUrl(
      * timestamp dan signature dari Google.
      * =================================================
      */
-    const gartUrlRequest =
+   const gartUrlRequest =
       JSON.stringify([
         "garturlreq",
         [
@@ -1396,11 +1396,28 @@ async function resolveGoogleNewsUrl(
             0,
             1,
           ],
-          rpcParts.articleId,
-          rpcParts.timestamp,
-          rpcParts.signature,
+          "X",
+          "X",
+          1,
+          [
+            1,
+            1,
+            1,
+          ],
+          1,
+          1,
+          null,
+          0,
+          0,
+          null,
+          0,
         ],
-      ]);
+        rpcParts.articleId,
+        Number(
+          rpcParts.timestamp
+        ),
+        rpcParts.signature,
+       ]);
 
     /**
      * =================================================
