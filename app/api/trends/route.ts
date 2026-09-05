@@ -410,7 +410,7 @@ async function getGoogleTrends(): Promise<{
   }
 
   return {
-    items: result.items as TrendItem[],
+    items: result.items as unknown as TrendItem[],
     source: "Google Trends Trending Now",
   };
 }
@@ -966,12 +966,6 @@ export async function GET() {
           row.keyword.toLowerCase()
         ) || 0;
 
-      /*
-       * Trend baru tidak punya snapshot lama.
-       * Tetapi tetap bisa masuk Naik Tercepat
-       * jika Google memberikan momentum yang kuat.
-       */
-
       const previousTrafficValue =
         previous?.traffic_value || 0;
 
@@ -999,16 +993,6 @@ export async function GET() {
               row.trend_rank
             )
           : 0;
-
-      /*
-       * Minimal momentum:
-       *
-       * - Google increase > 0
-       * ATAU
-       * - traffic RAMAIHARI naik
-       * ATAU
-       * - ranking naik
-       */
 
       const hasMomentum =
         googleIncrease > 0 ||
