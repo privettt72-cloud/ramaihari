@@ -118,6 +118,17 @@ export default function Home() {
   const fastestRising =
     data?.fastestRising || [];
 
+  function scrollToCategory(categoryId: string) {
+    const element = document.getElementById(
+      `kategori-${categoryId}`
+    );
+
+    element?.scrollIntoView({
+      behavior: "smooth",
+      block: "start",
+    });
+  }
+
   return (
     <main className="min-h-screen bg-zinc-50 text-zinc-950">
       {/* HEADER */}
@@ -134,40 +145,60 @@ export default function Home() {
           </a>
 
           <nav className="hidden items-center gap-6 text-sm font-medium text-zinc-600 md:flex">
-            <a
-              href="#trending"
+            <button
+              type="button"
+              onClick={() =>
+                document
+                  .getElementById("trending")
+                  ?.scrollIntoView({
+                    behavior: "smooth",
+                    block: "start",
+                  })
+              }
               className="transition hover:text-orange-500"
             >
               Trending
-            </a>
+            </button>
 
-            <a
-              href="#berita"
+            <button
+              type="button"
+              onClick={() =>
+                scrollToCategory("berita")
+              }
               className="transition hover:text-orange-500"
             >
               Berita
-            </a>
+            </button>
 
-            <a
-              href="#hiburan"
+            <button
+              type="button"
+              onClick={() =>
+                scrollToCategory("hiburan")
+              }
               className="transition hover:text-orange-500"
             >
               Hiburan
-            </a>
+            </button>
 
-            <a
-              href="#olahraga"
+            <button
+              type="button"
+              onClick={() =>
+                scrollToCategory("olahraga")
+              }
               className="transition hover:text-orange-500"
             >
               Olahraga
-            </a>
+            </button>
 
-            <a
-              href="#gaming"
+            <button
+              type="button"
+              onClick={() =>
+                scrollToCategory("gaming")
+              }
               className="transition hover:text-orange-500"
             >
               Gaming
-            </a>
+            </button>
           </nav>
 
           <button
@@ -592,8 +623,8 @@ export default function Home() {
                           key={
                             category.name
                           }
-                          id={category.id}
-                          href={`#${category.id}`}
+                          id={`kategori-${category.id}`}
+                          href={`#kategori-${category.id}`}
                           className="group rounded-3xl border border-zinc-200 bg-white p-5 transition hover:-translate-y-0.5 hover:border-orange-200 hover:shadow-md"
                         >
                           <div className="text-3xl">
