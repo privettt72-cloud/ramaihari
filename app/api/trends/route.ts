@@ -1,6 +1,8 @@
 
 import { NextResponse } from "next/server";
+
 import { fetchTrendingNow } from "google-trends-now";
+
 import { supabaseServer } from "@/lib/supabase-server";
 
 type TrendItem = {
@@ -189,10 +191,12 @@ function calculateTrendScore(
   createdAt: string | null
 ): number {
   const traffic = trafficScore(trafficValue);
+
   const momentum = momentumScore(
     trafficValue,
     previousTrafficValue
   );
+
   const ranking = rankingScore(rank);
   const recency = recencyScore(createdAt);
 
@@ -258,6 +262,7 @@ async function getGoogleTrends(): Promise<TrendItem[]> {
         "Google Trends returned invalid result:",
         result
       );
+
       return [];
     }
 
@@ -290,6 +295,7 @@ async function getGoogleTrends(): Promise<TrendItem[]> {
         "Google Trends items is not an array:",
         resultObject.items
       );
+
       return [];
     }
 
@@ -621,7 +627,7 @@ function tryDecodeLegacyGoogleNewsUrl(
 
     const httpIndex =
       decoded.search(
-        /https?:\/\//i
+        /https?:\/\/ /i
       );
 
     if (httpIndex === -1) {
@@ -685,7 +691,6 @@ async function resolveNewsRedirect(
           },
 
           cache: "no-store",
-
           redirect: "follow",
 
           signal:
@@ -778,6 +783,11 @@ function decodeGoogleEscapedUrl(
  * Google dapat memiliki beberapa c-wiz[data-p].
  * Yang dibutuhkan adalah data-p yang berisi
  * garturlreq.
+ *
+ * Fallback:
+ * Google juga dapat menyediakan token
+ * melalui data-n-a-id, data-n-a-ts,
+ * dan data-n-a-sg.
  */
 function extractGoogleNewsDataP(
   html: string
@@ -807,6 +817,33 @@ function extractGoogleNewsDataP(
     }
   }
 
+  const idMatch = html.match(
+    /data-n-a-id=["']([^"']+)["']/i
+  );
+
+  const tsMatch = html.match(
+    /data-n-a-ts=["']([^"']+)["']/i
+  );
+
+  const sgMatch = html.match(
+    /data-n-a-sg=["']([^"']+)["']/i
+  );
+
+  if (
+    idMatch?.[1] &&
+    tsMatch?.[1] &&
+    sgMatch?.[1]
+  ) {
+    return JSON.stringify([
+      "garturlreq",
+      [
+        idMatch[1],
+        tsMatch[1],
+        sgMatch[1],
+      ],
+    ]);
+  }
+
   return null;
 }
 
@@ -815,13 +852,6 @@ function extractGoogleNewsDataP(
  * Fbv4je Google News.
  *
  * Google mengembalikan nested JSON.
- * Contoh sederhananya:
- *
- * [
- *   ["wrb.fr","Fbv4je",
- *     "[\"garturlres\",\"https://publisher.com/article\",1]"
- *   ]
- * ]
  */
 function extractPublisherUrlFromRpc(
   responseText: string
@@ -844,7 +874,7 @@ function extractPublisherUrlFromRpc(
 
       const urlMatches =
         value.match(
-          /https?:\\?\/\\?\/[^"'\\\s\]}]+/gi
+          /https?:\\?\/\\?\/[^"'\\\s\]} }]+/gi
         ) ?? [];
 
       for (const raw of urlMatches) {
@@ -956,7 +986,9 @@ function extractPublisherUrlFromRpc(
 
   const patterns = [
     /garturlres[^"]*"(https?:\\?\/\\?\/[^"\\\s]+)/i,
+
     /\["garturlres"\s*,\s*"(https?:\\?\/\\?\/[^"]+)"/i,
+
     /\\"garturlres\\"\s*,\s*\\"(https?:\\?\/\\?\/[^"\\]+)\\"/i,
   ];
 
@@ -1050,7 +1082,6 @@ async function resolveGoogleNewsUrl(
           },
 
           cache: "no-store",
-
           redirect: "follow",
 
           signal:
@@ -1098,11 +1129,11 @@ async function resolveGoogleNewsUrl(
         articleHtml
       );
 
-      console.log(
-  "GOOGLE NEWS DATA P:",
-  Boolean(dataP),
-  dataP?.slice(0, 500)
-);
+    console.log(
+      "GOOGLE NEWS DATA P:",
+      Boolean(dataP),
+      dataP?.slice(0, 500)
+    );
 
     if (!dataP) {
       /**
@@ -1132,7 +1163,7 @@ async function resolveGoogleNewsUrl(
      *
      * data-p Google biasanya berbentuk:
      *
-     * %.@.["garturlreq", ...]
+     * %.\@.["garturlreq", ...]
      */
     let parsedDataP: unknown;
 
@@ -1271,10 +1302,10 @@ async function resolveGoogleNewsUrl(
     const responseText =
       await rpcResponse.text();
 
-      console.log(
-  "GOOGLE NEWS RPC RESPONSE:",
-  responseText.slice(0, 3000)
-);
+    console.log(
+      "GOOGLE NEWS RPC RESPONSE:",
+      responseText.slice(0, 3000)
+    );
 
     if (!responseText) {
       return null;
@@ -1352,7 +1383,6 @@ async function getArticleMetadata(
           },
 
           cache: "no-store",
-
           redirect: "follow",
 
           signal:
