@@ -168,8 +168,7 @@ function recencyScore(dateValue: unknown): number {
     return 0;
   }
 
-  const timestamp =
-    new Date(String(dateValue)).getTime();
+  const timestamp = new Date(String(dateValue)).getTime();
 
   if (!Number.isFinite(timestamp)) {
     return 0;
@@ -692,13 +691,15 @@ function tryDecodeLegacyGoogleNewsUrl(
     }
 
     const normalized =
-      token.replace(
-        /-/g,
-        "+"
-      ).replace(
-        /_/g,
-        "/"
-      );
+      token
+        .replace(
+          /-/g,
+          "+"
+        )
+        .replace(
+          /_/g,
+          "/"
+        );
 
     const padded =
       normalized +
@@ -823,11 +824,24 @@ async function resolveGoogleNewsUrl(
   googleNewsUrl: string
 ): Promise<string | null> {
   try {
+    console.log(
+      "=== GOOGLE NEWS RESOLVER START ==="
+    );
+
+    console.log(
+      "Input URL:",
+      googleNewsUrl
+    );
+
     if (
       !isGoogleNewsUrl(
         googleNewsUrl
       )
     ) {
+      console.log(
+        "Input is not Google News URL"
+      );
+
       return isValidHttpUrl(
         googleNewsUrl
       )
@@ -835,103 +849,82 @@ async function resolveGoogleNewsUrl(
         : null;
     }
 
-    /*
-     * 1. Coba format lama terlebih dahulu.
-     */
-    const legacyUrl =
-      tryDecodeLegacyGoogleNewsUrl(
-        googleNewsUrl
-      );
-
-    if (
-      legacyUrl &&
-      !isGoogleNewsUrl(
-        legacyUrl
-      )
-    ) {
-      return legacyUrl;
-    }
-
-    /*
-     * 2. Ambil token article dari URL.
-     */
     const articleId =
       extractGoogleNewsArticleId(
         googleNewsUrl
       );
 
+    console.log(
+      "Google News article ID:",
+      articleId
+    );
+
     if (!articleId) {
       console.error(
-        "Google News article ID not found:",
-        googleNewsUrl
+        "Google News article ID not found"
       );
 
       return null;
     }
 
-    /*
-     * 3. Google News sekarang memakai token CBMi...
-     *    yang perlu dikirim ke batchexecute.
-     *
-     *    Kita tidak bergantung pada data-n-a-sg
-     *    dari halaman HTML karena struktur halaman
-     *    Google News sering berubah.
-     */
-    const batchRequest =
+    const rpcPayload = [
+      "garturlreq",
       [
         [
+          "X",
+          "X",
           [
-            "Fbv4je",
-            JSON.stringify([
-              "garturlreq",
-              [
-                [
-                  "X",
-                  "X",
-                  [
-                    "X",
-                    "X",
-                  ],
-                  null,
-                  null,
-                  1,
-                  1,
-                  "US:en",
-                  null,
-                  1,
-                  null,
-                  null,
-                  null,
-                  null,
-                  null,
-                  0,
-                  1,
-                ],
-                "X",
-                "X",
-                1,
-                [
-                  1,
-                  1,
-                  1,
-                ],
-                1,
-                1,
-                null,
-                0,
-                0,
-                null,
-                0,
-              ],
-              articleId,
-              0,
-              "",
-            ]),
-            null,
-            "generic",
+            "X",
+            "X",
           ],
+          null,
+          null,
+          1,
+          1,
+          "US:en",
+          null,
+          1,
+          null,
+          null,
+          null,
+          null,
+          null,
+          0,
+          1,
         ],
-      ];
+        "X",
+        "X",
+        1,
+        [
+          1,
+          1,
+          1,
+        ],
+        1,
+        1,
+        null,
+        0,
+        0,
+        null,
+        0,
+      ],
+      articleId,
+      0,
+      "",
+    ];
+
+    const batchRequest = [
+      [
+        [
+          "Fbv4je",
+          JSON.stringify(
+            rpcPayload
+          ),
+          null,
+          "generic",
+        ],
+      ],
+    ];
 
     const requestBody =
       `f.req=${encodeURIComponent(
@@ -940,9 +933,21 @@ async function resolveGoogleNewsUrl(
         )
       )}`;
 
+    const endpoint =
+      "https://news.google.com/_/DotsSplashUi/data/batchexecute?rpcids=Fbv4je";
+
+    console.log(
+      "Calling Google News batchexecute..."
+    );
+
+    console.log(
+      "Endpoint:",
+      endpoint
+    );
+
     const response =
       await fetch(
-        "https://news.google.com/_/DotsSplashUi/data/batchexecute?rpcids=Fbv4je",
+        endpoint,
         {
           method: "POST",
 
@@ -966,7 +971,11 @@ async function resolveGoogleNewsUrl(
           body:
             requestBody,
 
-          cache: "no-store",
+          cache:
+            "no-store",
+
+          redirect:
+            "follow",
 
           signal:
             AbortSignal.timeout(
@@ -975,12 +984,26 @@ async function resolveGoogleNewsUrl(
         }
       );
 
-    if (
-      !response.ok
-    ) {
+    console.log(
+      "batchexecute HTTP status:",
+      response.status
+    );
+
+    console.log(
+      "batchexecute final URL:",
+      response.url
+    );
+
+    if (!response.ok) {
+      const errorText =
+        await response.text();
+
       console.error(
-        "Google News batchexecute HTTP error:",
-        response.status
+        "batchexecute HTTP error body:",
+        errorText.slice(
+          0,
+          1000
+        )
       );
 
       return null;
@@ -989,35 +1012,87 @@ async function resolveGoogleNewsUrl(
     const responseText =
       await response.text();
 
+    console.log(
+      "batchexecute response length:",
+      responseText.length
+    );
+
+    console.log(
+      "batchexecute response preview:",
+      responseText.slice(
+        0,
+        2000
+      )
+    );
+
     if (!responseText) {
+      console.error(
+        "batchexecute returned empty response"
+      );
+
       return null;
     }
 
-    /*
-     * Google mengembalikan:
-     * [\"garturlres\",\"https://publisher...\",...]
-     *
-     * Cari beberapa kemungkinan bentuk
-     * escape agar lebih tahan terhadap perubahan
-     * kecil pada response Google.
-     */
+    const decodedResponse =
+      responseText
+        .replace(
+          /\\u003d/g,
+          "="
+        )
+        .replace(
+          /\\u0026/g,
+          "&"
+        )
+        .replace(
+          /\\u003f/g,
+          "?"
+        )
+        .replace(
+          /\\u002F/gi,
+          "/"
+        )
+        .replace(
+          /\\"/g,
+          '"'
+        );
+
+    console.log(
+      "Decoded response preview:",
+      decodedResponse.slice(
+        0,
+        2000
+      )
+    );
 
     const patterns = [
-      /\[\\"garturlres\\",\\"(https?:\/\/[^"\\]+?)(?:\\",|\\"])/i,
+      /garturlres[^"]*"((?:https?:\/\/)[^"]+)/i,
 
-      /\["garturlres","(https?:\/\/[^"]+?)"(?:,|\])/i,
+      /garturlres.{0,500}?(https?:\/\/[^\s"\\]+)/i,
 
-      /garturlres.{0,1000}?(https?:\/\/[^"\\\s]+)/i,
+      /"(https?:\/\/[^"]+)"[^]*?garturlres/i,
+
+      /(https?:\/\/[^"\\\s]+)[^]*?garturlres/i,
     ];
 
     for (
-      const pattern of
-        patterns
+      let index = 0;
+      index < patterns.length;
+      index++
     ) {
+      const pattern =
+        patterns[index];
+
       const match =
-        responseText.match(
+        decodedResponse.match(
           pattern
         );
+
+      console.log(
+        `Resolver pattern ${index + 1} match:`,
+        Boolean(
+          match?.[1]
+        )
+      );
 
       if (
         !match?.[1]
@@ -1025,17 +1100,39 @@ async function resolveGoogleNewsUrl(
         continue;
       }
 
-      const candidate =
+      let candidate =
         match[1]
-          .replace(
-            /\\"/g,
-            '"'
-          )
           .replace(
             /\\u0026/g,
             "&"
           )
+          .replace(
+            /\\u003d/g,
+            "="
+          )
+          .replace(
+            /\\u003f/g,
+            "?"
+          )
+          .replace(
+            /\\\//g,
+            "/"
+          )
           .trim();
+
+      try {
+        candidate =
+          decodeURIComponent(
+            candidate
+          );
+      } catch {
+        // Biarkan URL apa adanya.
+      }
+
+      console.log(
+        "Candidate publisher URL:",
+        candidate
+      );
 
       if (
         isValidHttpUrl(
@@ -1045,18 +1142,43 @@ async function resolveGoogleNewsUrl(
           candidate
         )
       ) {
+        console.log(
+          "=== GOOGLE NEWS RESOLVER SUCCESS ==="
+        );
+
         return candidate;
       }
     }
 
+    const allUrls =
+      decodedResponse.match(
+        /https?:\/\/[^\s"'\\]+/gi
+      ) ?? [];
+
+    console.log(
+      "HTTP URLs found in Google response:",
+      allUrls
+        .slice(
+          0,
+          10
+        )
+        .map(
+          (url) =>
+            url.slice(
+              0,
+              300
+            )
+        )
+    );
+
     console.error(
-      "Google News publisher URL not found in batchexecute response"
+      "=== GOOGLE NEWS RESOLVER FAILED ==="
     );
 
     return null;
   } catch (error) {
     console.error(
-      "Google News URL resolver error:",
+      "=== GOOGLE NEWS RESOLVER ERROR ===",
       error
     );
 
@@ -1103,9 +1225,11 @@ async function getArticleMetadata(
               "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/131 Safari/537.36",
           },
 
-          cache: "no-store",
+          cache:
+            "no-store",
 
-          redirect: "follow",
+          redirect:
+            "follow",
 
           signal:
             AbortSignal.timeout(
@@ -1231,7 +1355,8 @@ async function getRelatedNews(
               "RAMAIHARI/1.0",
           },
 
-          cache: "no-store",
+          cache:
+            "no-store",
 
           signal:
             AbortSignal.timeout(
@@ -1766,7 +1891,8 @@ export async function GET() {
         total:
           trends.length,
 
-        fallback: true,
+        fallback:
+          true,
 
         database: {
           inserted: 0,
@@ -1857,7 +1983,10 @@ export async function GET() {
             item.keyword.length >
             0
         )
-        .slice(0, 10);
+        .slice(
+          0,
+          10
+        );
 
     const keywords =
       normalized.map(
@@ -2444,6 +2573,7 @@ export async function GET() {
     return NextResponse.json(
       {
         success: false,
+
         error:
           errorObject,
       },
