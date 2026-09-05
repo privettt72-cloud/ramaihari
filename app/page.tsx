@@ -380,7 +380,7 @@ export default function Home() {
                           activeCategory ===
                           category
                             ? "bg-orange-500 text-white shadow-sm"
-                            : "bg-white text-zinc-600 border border-zinc-200 hover:border-orange-300 hover:text-orange-500"
+                            : "border border-zinc-200 bg-white text-zinc-600 hover:border-orange-300 hover:text-orange-500"
                         }`}
                       >
                         {category}
@@ -422,11 +422,14 @@ export default function Home() {
                   <div className="grid gap-4 md:grid-cols-2">
                     {filteredTrends.map(
                       (trend) => (
-                        <article
+                        <a
                           key={
                             trend.keyword
                           }
-                          className="group overflow-hidden rounded-3xl border border-zinc-200 bg-white transition hover:-translate-y-0.5 hover:border-orange-200 hover:shadow-lg"
+                          href={`/trending/${encodeURIComponent(
+                            trend.keyword
+                          )}`}
+                          className="group block overflow-hidden rounded-3xl border border-zinc-200 bg-white transition hover:-translate-y-0.5 hover:border-orange-200 hover:shadow-lg"
                         >
                           <div className="flex gap-4 p-5">
                             <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-zinc-100 text-sm font-black text-zinc-500">
@@ -500,20 +503,18 @@ export default function Home() {
                               )}
 
                               {trend.newsUrl && (
-                                <a
-                                  href={
-                                    trend.newsUrl
+                                <span
+                                  onClick={(event) =>
+                                    event.stopPropagation()
                                   }
-                                  target="_blank"
-                                  rel="noreferrer"
                                   className="mt-3 inline-flex text-xs font-bold text-orange-500 hover:text-orange-600"
                                 >
                                   Baca berita →
-                                </a>
+                                </span>
                               )}
                             </div>
                           </div>
-                        </article>
+                        </a>
                       )
                     )}
                   </div>
