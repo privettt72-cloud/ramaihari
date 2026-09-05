@@ -121,6 +121,13 @@ export default function Home() {
   const fastestRising =
     data?.fastestRising || [];
 
+  /*
+   * FILTER KATEGORI
+   *
+   * Kalau "Semua", semua trend ditampilkan.
+   * Kalau kategori tertentu, hanya trend
+   * dengan category yang sama yang ditampilkan.
+   */
   const filteredTrends =
     activeCategory === "Semua"
       ? trends
@@ -130,6 +137,17 @@ export default function Home() {
             activeCategory
         );
 
+  /*
+   * FUNGSI PILIH KATEGORI
+   *
+   * Digunakan oleh:
+   * - menu header
+   * - tombol filter
+   * - kartu kategori
+   *
+   * Setelah kategori dipilih,
+   * halaman otomatis scroll ke bagian Trending.
+   */
   function selectCategory(
     category: string
   ) {
@@ -147,9 +165,12 @@ export default function Home() {
 
   return (
     <main className="min-h-screen bg-zinc-50 text-zinc-950">
-      {/* HEADER */}
+      {/* =====================================================
+          HEADER
+          ===================================================== */}
       <header className="sticky top-0 z-50 border-b border-zinc-200 bg-white/95 backdrop-blur">
         <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 py-4 sm:px-6">
+          {/* LOGO */}
           <a
             href="/"
             className="text-xl font-black tracking-tight sm:text-2xl"
@@ -160,7 +181,9 @@ export default function Home() {
             </span>
           </a>
 
+          {/* NAVIGASI */}
           <nav className="hidden items-center gap-6 text-sm font-medium text-zinc-600 md:flex">
+            {/* TRENDING */}
             <button
               type="button"
               onClick={() =>
@@ -175,6 +198,7 @@ export default function Home() {
               Trending
             </button>
 
+            {/* BERITA */}
             <button
               type="button"
               onClick={() =>
@@ -189,6 +213,7 @@ export default function Home() {
               Berita
             </button>
 
+            {/* HIBURAN */}
             <button
               type="button"
               onClick={() =>
@@ -203,6 +228,7 @@ export default function Home() {
               Hiburan
             </button>
 
+            {/* OLAHRAGA */}
             <button
               type="button"
               onClick={() =>
@@ -217,6 +243,7 @@ export default function Home() {
               Olahraga
             </button>
 
+            {/* GAMING */}
             <button
               type="button"
               onClick={() =>
@@ -232,6 +259,7 @@ export default function Home() {
             </button>
           </nav>
 
+          {/* SEARCH */}
           <button
             className="rounded-full border border-zinc-200 px-4 py-2 text-sm font-semibold text-zinc-700 transition hover:border-orange-300 hover:text-orange-500"
             type="button"
@@ -241,15 +269,19 @@ export default function Home() {
         </div>
       </header>
 
-      {/* HERO */}
+      {/* =====================================================
+          HERO
+          ===================================================== */}
       <section className="border-b border-zinc-200 bg-white">
         <div className="mx-auto max-w-6xl px-4 py-12 sm:px-6 sm:py-16">
           <div className="max-w-3xl">
+            {/* BADGE */}
             <div className="mb-4 inline-flex items-center gap-2 rounded-full bg-orange-50 px-3 py-1.5 text-sm font-semibold text-orange-600">
               <span>🔥</span>
               Indonesia Trending Radar
             </div>
 
+            {/* TITLE */}
             <h1 className="text-4xl font-black leading-tight tracking-tight sm:text-6xl">
               Yang Lagi Ramai,
               <br />
@@ -258,6 +290,7 @@ export default function Home() {
               </span>
             </h1>
 
+            {/* DESCRIPTION */}
             <p className="mt-5 max-w-2xl text-base leading-7 text-zinc-600 sm:text-lg">
               Pantau apa yang sedang ramai
               dibicarakan orang Indonesia —
@@ -266,6 +299,7 @@ export default function Home() {
               paling cepat.
             </p>
 
+            {/* META */}
             <div className="mt-6 flex flex-wrap items-center gap-3 text-sm text-zinc-500">
               <span className="rounded-full bg-zinc-100 px-3 py-1.5">
                 🇮🇩 Indonesia
@@ -288,9 +322,14 @@ export default function Home() {
         </div>
       </section>
 
-      {/* MAIN */}
+      {/* =====================================================
+          MAIN
+          ===================================================== */}
       <div className="mx-auto max-w-6xl px-4 py-10 sm:px-6">
-        {/* LOADING */}
+
+        {/* ===================================================
+            LOADING
+            =================================================== */}
         {loading && (
           <div className="rounded-3xl border border-zinc-200 bg-white p-8 text-center">
             <div className="mx-auto mb-3 h-8 w-8 animate-spin rounded-full border-4 border-zinc-200 border-t-orange-500" />
@@ -306,7 +345,9 @@ export default function Home() {
           </div>
         )}
 
-        {/* ERROR */}
+        {/* ===================================================
+            ERROR
+            =================================================== */}
         {!loading && error && (
           <div className="rounded-3xl border border-red-200 bg-red-50 p-6">
             <p className="font-bold text-red-700">
@@ -320,16 +361,21 @@ export default function Home() {
           </div>
         )}
 
-        {/* CONTENT */}
+        {/* ===================================================
+            CONTENT
+            =================================================== */}
         {!loading &&
           !error &&
           data && (
             <>
-              {/* TRENDING */}
+              {/* =================================================
+                  TRENDING
+                  ================================================= */}
               <section
                 id="trending"
                 className="scroll-mt-24"
               >
+                {/* HEADING */}
                 <div className="mb-5 flex items-end justify-between gap-4">
                   <div>
                     <p className="text-sm font-bold uppercase tracking-wider text-orange-500">
@@ -352,13 +398,16 @@ export default function Home() {
                     </p>
                   </div>
 
+                  {/* JUMLAH TOPIK */}
                   <div className="hidden rounded-full bg-zinc-100 px-3 py-1.5 text-xs font-semibold text-zinc-600 sm:block">
                     {filteredTrends.length}{" "}
                     topik
                   </div>
                 </div>
 
-                {/* CATEGORY FILTER */}
+                {/* =================================================
+                    CATEGORY FILTER
+                    ================================================= */}
                 <div className="mb-6 flex flex-wrap gap-2">
                   {[
                     "Semua",
@@ -389,6 +438,9 @@ export default function Home() {
                   )}
                 </div>
 
+                {/* =================================================
+                    KALAU TIDAK ADA TREND DI KATEGORI
+                    ================================================= */}
                 {filteredTrends.length ===
                 0 ? (
                   <div className="rounded-3xl border border-zinc-200 bg-white p-8 text-center">
@@ -419,9 +471,32 @@ export default function Home() {
                     </button>
                   </div>
                 ) : (
+                  /* =================================================
+                     DAFTAR TREND
+                     ================================================= */
                   <div className="grid gap-4 md:grid-cols-2">
                     {filteredTrends.map(
                       (trend) => (
+
+                        /*
+                         * =================================================
+                         * KARTU TREND SEKARANG MENJADI LINK DETAIL
+                         *
+                         * INI BAGIAN PENTING.
+                         *
+                         * Sebelumnya kartu hanya <article>.
+                         * Sekarang kartu dibungkus <a>.
+                         *
+                         * Contoh:
+                         * keyword = "betis vs madrid"
+                         *
+                         * hasil URL:
+                         * /trending/betis%20vs%20madrid
+                         *
+                         * Jadi ketika kartu diklik,
+                         * user masuk ke halaman detail trend.
+                         * =================================================
+                         */
                         <a
                           key={
                             trend.keyword
@@ -432,10 +507,13 @@ export default function Home() {
                           className="group block overflow-hidden rounded-3xl border border-zinc-200 bg-white transition hover:-translate-y-0.5 hover:border-orange-200 hover:shadow-lg"
                         >
                           <div className="flex gap-4 p-5">
+
+                            {/* RANK */}
                             <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-zinc-100 text-sm font-black text-zinc-500">
                               {trend.rank}
                             </div>
 
+                            {/* GAMBAR */}
                             {trend.picture && (
                               <div className="hidden h-20 w-24 shrink-0 overflow-hidden rounded-2xl bg-zinc-100 sm:block">
                                 <img
@@ -450,7 +528,10 @@ export default function Home() {
                               </div>
                             )}
 
+                            {/* DETAIL KARTU */}
                             <div className="min-w-0 flex-1">
+
+                              {/* CATEGORY + GROWTH */}
                               <div className="flex flex-wrap items-center gap-2">
                                 <span className="rounded-full bg-orange-50 px-2.5 py-1 text-xs font-bold text-orange-600">
                                   {
@@ -471,12 +552,14 @@ export default function Home() {
                                   )}
                               </div>
 
+                              {/* TITLE */}
                               <h3 className="mt-2 text-lg font-black capitalize leading-snug">
                                 {
                                   trend.title
                                 }
                               </h3>
 
+                              {/* TRAFFIC */}
                               <div className="mt-3 flex flex-wrap items-center gap-3 text-xs text-zinc-500">
                                 <span>
                                   🔎{" "}
@@ -494,6 +577,7 @@ export default function Home() {
                                 </span>
                               </div>
 
+                              {/* NEWS TITLE */}
                               {trend.newsTitle && (
                                 <p className="mt-3 line-clamp-2 text-sm leading-6 text-zinc-600">
                                   {
@@ -502,6 +586,7 @@ export default function Home() {
                                 </p>
                               )}
 
+                              {/* NEWS LINK */}
                               {trend.newsUrl && (
                                 <span
                                   onClick={(event) =>
@@ -521,7 +606,9 @@ export default function Home() {
                 )}
               </section>
 
-              {/* FASTEST RISING */}
+              {/* =================================================
+                  FASTEST RISING
+                  ================================================= */}
               <section className="mt-14">
                 <div className="mb-5">
                   <p className="text-sm font-bold uppercase tracking-wider text-green-600">
@@ -568,6 +655,7 @@ export default function Home() {
                             }
                             className="group rounded-3xl border border-zinc-200 bg-white p-5 transition hover:-translate-y-0.5 hover:border-green-200 hover:shadow-lg"
                           >
+                            {/* ICON + GROWTH */}
                             <div className="flex items-start justify-between gap-3">
                               <span className="flex h-10 w-10 items-center justify-center rounded-2xl bg-green-50 text-lg">
                                 🚀
@@ -582,12 +670,14 @@ export default function Home() {
                               )}
                             </div>
 
+                            {/* TITLE */}
                             <h3 className="mt-4 text-lg font-black capitalize leading-snug">
                               {
                                 item.title
                               }
                             </h3>
 
+                            {/* CATEGORY */}
                             {item.category && (
                               <div className="mt-2">
                                 <span className="rounded-full bg-zinc-100 px-2.5 py-1 text-xs font-bold text-zinc-600">
@@ -598,6 +688,7 @@ export default function Home() {
                               </div>
                             )}
 
+                            {/* INFO */}
                             <div className="mt-4 space-y-2 text-sm text-zinc-500">
                               <p>
                                 Rank sekarang:{" "}
@@ -632,6 +723,7 @@ export default function Home() {
                                 )}
                             </div>
 
+                            {/* GOOGLE MOMENTUM */}
                             {googleGrowth >
                               0 && (
                               <div className="mt-4 border-t border-zinc-100 pt-3">
@@ -657,7 +749,9 @@ export default function Home() {
                 )}
               </section>
 
-              {/* AD SLOT */}
+              {/* =================================================
+                  AD SLOT
+                  ================================================= */}
               <section className="my-14">
                 <div className="flex min-h-28 items-center justify-center rounded-3xl border border-dashed border-zinc-300 bg-zinc-100">
                   <span className="text-xs font-semibold uppercase tracking-widest text-zinc-400">
@@ -666,7 +760,9 @@ export default function Home() {
                 </div>
               </section>
 
-              {/* CATEGORY GRID */}
+              {/* =================================================
+                  CATEGORY GRID
+                  ================================================= */}
               <section>
                 <div className="mb-5">
                   <p className="text-sm font-bold uppercase tracking-wider text-orange-500">
@@ -726,18 +822,21 @@ export default function Home() {
                           }
                           className="group rounded-3xl border border-zinc-200 bg-white p-5 text-left transition hover:-translate-y-0.5 hover:border-orange-200 hover:shadow-md"
                         >
+                          {/* ICON */}
                           <div className="text-3xl">
                             {
                               category.icon
                             }
                           </div>
 
+                          {/* NAME */}
                           <h3 className="mt-4 font-black">
                             {
                               category.name
                             }
                           </h3>
 
+                          {/* COUNT */}
                           <p className="mt-1 text-sm text-zinc-500">
                             {count} topik
                             ramai
@@ -749,7 +848,9 @@ export default function Home() {
                 </div>
               </section>
 
-              {/* INSIGHT */}
+              {/* =================================================
+                  INSIGHT
+                  ================================================= */}
               <section className="mt-14">
                 <div className="rounded-3xl bg-zinc-950 p-6 text-white sm:p-8">
                   <p className="text-sm font-bold uppercase tracking-wider text-orange-400">
@@ -762,6 +863,8 @@ export default function Home() {
                   </h2>
 
                   <div className="mt-6 grid gap-4 sm:grid-cols-3">
+
+                    {/* TOPIK #1 */}
                     <div className="rounded-2xl bg-white/10 p-4">
                       <p className="text-sm text-zinc-400">
                         Topik #1
@@ -776,6 +879,7 @@ export default function Home() {
                       </p>
                     </div>
 
+                    {/* TRAFFIC TERTINGGI */}
                     <div className="rounded-2xl bg-white/10 p-4">
                       <p className="text-sm text-zinc-400">
                         Traffic tertinggi
@@ -795,6 +899,7 @@ export default function Home() {
                       </p>
                     </div>
 
+                    {/* LONJAKAN TERCEPAT */}
                     <div className="rounded-2xl bg-white/10 p-4">
                       <p className="text-sm text-zinc-400">
                         Lonjakan tercepat
@@ -810,6 +915,7 @@ export default function Home() {
                           : "-"}
                       </p>
                     </div>
+
                   </div>
                 </div>
               </section>
@@ -817,9 +923,13 @@ export default function Home() {
           )}
       </div>
 
-      {/* FOOTER */}
+      {/* =====================================================
+          FOOTER
+          ===================================================== */}
       <footer className="mt-10 border-t border-zinc-200 bg-white">
         <div className="mx-auto flex max-w-6xl flex-col gap-3 px-4 py-8 text-sm text-zinc-500 sm:px-6">
+
+          {/* LOGO */}
           <div className="font-black text-zinc-900">
             RAMAI
             <span className="text-orange-500">
@@ -827,14 +937,17 @@ export default function Home() {
             </span>
           </div>
 
+          {/* TAGLINE */}
           <p>
             Yang Lagi Ramai, Hari Ini.
           </p>
 
+          {/* SOURCE */}
           <p className="text-xs text-zinc-400">
             Data trending bersumber dari
             Google Trends.
           </p>
+
         </div>
       </footer>
     </main>
