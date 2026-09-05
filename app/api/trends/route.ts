@@ -1,48 +1,19 @@
 import { NextResponse } from "next/server";
-
+import { fetchTrendingNow } from "google-trends-now";
 import { supabaseServer } from "@/lib/supabase-server";
 
-type Trend = {
-  id: string;
-  rank: number;
-  title: string;
-  keyword: string;
-  traffic: string;
-  trafficValue: number;
-  trendScore: number;
-  category: string;
-  newsTitle: string;
-  newsUrl: string;
-  newsSource: string;
-  picture: string;
-  pictureSource: string;
-  trafficGrowth: number;
-};
-
-type FastestRising = {
-  trendId: string;
-  keyword: string;
-  title: string;
-  currentRank: number;
-  previousRank: number;
-  rankChange: number;
-  trafficValue: number;
-  previousTrafficValue: number;
-  latestTrafficGrowth: number;
-  bestTrafficGrowth: number;
-  bestPreviousTraffic: number;
-  bestCurrentTraffic: number;
-  trafficGrowth: number;
-  risingScore: number;
-};
-
-type SnapshotRow = {
-  id?: number;
-  trend_id: string;
-  traffic: string | null;
-  traffic_value: number | null;
-  trend_rank: number | null;
-  recorded_at: string;
+type TrendItem = {
+  query?: string;
+  normalized_query?: string;
+  search_volume?: number;
+  search_volume_label?: string;
+  increase_percentage?: number;
+  position?: number;
+  raw_position?: number;
+  started_at?: string;
+  start_timestamp?: number;
+  categories?: string[];
+  explore_url?: string;
 };
 
 type TrendRow = {
@@ -51,99 +22,82 @@ type TrendRow = {
   title: string;
   category: string | null;
   traffic: string | null;
-  traffic_value: number | null;
+  traffic_value: number;
   source: string | null;
   source_url: string | null;
   picture: string | null;
   picture_source: string | null;
-  trend_rank: number | null;
-  trend_score: number | null;
+  trend_rank: number;
+  trend_score: number;
   created_at: string;
   updated_at: string;
 };
 
-type TrendItem = {
-  rank: number;
-  title: string;
-  keyword: string;
-  traffic: string;
-  trafficValue: number;
-  newsTitle: string;
-  newsUrl: string;
-  newsSource: string;
-  picture: string;
-  pictureSource: string;
+type SnapshotRow = {
+  id: number;
+  trend_id: string;
+  traffic: string | null;
+  traffic_value: number;
+  trend_rank: number;
+  recorded_at: string;
 };
 
-function cleanText(value: string) {
-  return value
-    .replace(/<!\[CDATA\[/gi, "")
-    .replace(/\]\]>/gi, "")
-    .replace(/<[^>]*>/g, "")
-    .replace(/&amp;/gi, "&")
-    .replace(/&quot;/gi, '"')
-    .replace(/&#39;/gi, "'")
-    .replace(/&apos;/gi, "'")
-    .replace(/&lt;/gi, "<")
-    .replace(/&gt;/gi, ">")
+type FastestRising = {
+  id: string;
+  keyword: string;
+  title: string;
+  category: string | null;
+  currentTraffic: string | null;
+  currentTrafficValue: number;
+  previousTraffic: string | null;
+  previousTrafficValue: number;
+  growth: number;
+  googleIncrease: number;
+  rank: number;
+  previousRank: number;
+  rankChange: number;
+  score: number;
+};
+
+function cleanText(value: unknown): string {
+  return String(value ?? "")
     .replace(/\s+/g, " ")
     .trim();
 }
 
-function getTopLevelTitle(itemXml: string) {
-  const match = itemXml.match(
-    /^\s*<title(?:\s[^>]*)?>([\s\S]*?)<\/title>/i
-  );
-
-  return cleanText(match?.[1] || "");
-}
-
-function getTagValue(itemXml: string, tagName: string) {
-  const regex = new RegExp(
-    `<${tagName}(?:\\s[^>]*)?>([\\s\\S]*?)<\\/${tagName}>`,
-    "i"
-  );
-
-  const match = itemXml.match(regex);
-
-  return cleanText(match?.[1] || "");
-}
-
-function getTagAttribute(
-  itemXml: string,
-  tagName: string,
-  attributeName: string
-) {
-  const regex = new RegExp(
-    `<${tagName}\\b[^>]*\\s${attributeName}=["']([^"']+)["'][^>]*>`,
-    "i"
-  );
-
-  const match = itemXml.match(regex);
-
-  return cleanText(match?.[1] || "");
-}
-
-function parseTrafficValue(value: string) {
-  const cleaned = cleanText(value)
-    .replace(/\+/g, "")
-    .replace(/,/g, "")
-    .replace(/\./g, "");
-
-  const match = cleaned.match(/\d+/);
-
-  if (!match) {
-    return 0;
+function parseTrafficValue(
+  value: unknown,
+  fallback = 0
+): number {
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return value;
   }
 
-  return Number(match[0]);
+  const text = cleanText(value);
+
+  if (!text) {
+    return fallback;
+  }
+
+  const match = text.replace(/,/g, "").match(/[\d.]+/);
+
+  if (!match) {
+    return fallback;
+  }
+
+  const number = Number(match[0]);
+
+  return Number.isFinite(number)
+    ? Math.round(number)
+    : fallback;
 }
 
-function trafficScore(trafficValue: number) {
-  if (trafficValue >= 50000) return 100;
-  if (trafficValue >= 10000) return 95;
-  if (trafficValue >= 5000) return 90;
-  if (trafficValue >= 2000) return 85;
+function trafficScore(trafficValue: number): number {
+  if (trafficValue >= 200000) return 100;
+  if (trafficValue >= 50000) return 95;
+  if (trafficValue >= 10000) return 90;
+  if (trafficValue >= 5000) return 85;
+  if (trafficValue >= 2000) return 80;
   if (trafficValue >= 1000) return 75;
   if (trafficValue >= 500) return 65;
   if (trafficValue >= 200) return 55;
@@ -153,42 +107,78 @@ function trafficScore(trafficValue: number) {
   return 0;
 }
 
-function momentumScore(growth: number) {
-  if (growth >= 300) return 100;
-  if (growth >= 200) return 90;
-  if (growth >= 100) return 80;
-  if (growth >= 50) return 70;
-  if (growth >= 25) return 60;
-  if (growth >= 10) return 50;
-  if (growth > 0) return 30;
+function momentumScore(
+  increasePercentage: number
+): number {
+  if (increasePercentage >= 1000) return 100;
+  if (increasePercentage >= 500) return 95;
+  if (increasePercentage >= 300) return 90;
+  if (increasePercentage >= 200) return 85;
+  if (increasePercentage >= 100) return 80;
+  if (increasePercentage >= 50) return 70;
+  if (increasePercentage >= 25) return 60;
+  if (increasePercentage >= 10) return 50;
+  if (increasePercentage > 0) return 30;
 
   return 0;
 }
 
-function rankingScore(rank: number) {
-  if (rank === 1) return 100;
-  if (rank === 2) return 95;
-  if (rank === 3) return 90;
-  if (rank === 4) return 85;
-  if (rank === 5) return 80;
-  if (rank === 6) return 70;
-  if (rank === 7) return 60;
-  if (rank === 8) return 50;
-  if (rank === 9) return 40;
-  if (rank === 10) return 30;
-
-  return 0;
+function rankingScore(rank: number): number {
+  switch (rank) {
+    case 1:
+      return 100;
+    case 2:
+      return 95;
+    case 3:
+      return 90;
+    case 4:
+      return 85;
+    case 5:
+      return 80;
+    case 6:
+      return 70;
+    case 7:
+      return 60;
+    case 8:
+      return 50;
+    case 9:
+      return 40;
+    case 10:
+      return 30;
+    default:
+      return 20;
+  }
 }
 
-function recencyScore(createdAt: string) {
-  const created = new Date(createdAt).getTime();
+function recencyScore(
+  startedAt?: string,
+  startTimestamp?: number
+): number {
+  let startedTime = 0;
 
-  if (!Number.isFinite(created)) {
+  if (startedAt) {
+    const parsed = new Date(startedAt).getTime();
+
+    if (Number.isFinite(parsed)) {
+      startedTime = parsed;
+    }
+  }
+
+  if (!startedTime && startTimestamp) {
+    startedTime =
+      startTimestamp > 10_000_000_000
+        ? startTimestamp
+        : startTimestamp * 1000;
+  }
+
+  if (!startedTime) {
     return 50;
   }
 
-  const ageMinutes =
-    (Date.now() - created) / (1000 * 60);
+  const ageMinutes = Math.max(
+    0,
+    (Date.now() - startedTime) / 60000
+  );
 
   if (ageMinutes <= 30) return 100;
   if (ageMinutes <= 60) return 85;
@@ -197,21 +187,29 @@ function recencyScore(createdAt: string) {
   return 50;
 }
 
-function calculateTrendScore({
-  trafficValue,
-  trafficGrowth,
-  rank,
-  createdAt,
-}: {
+function calculateTrendScore(params: {
   trafficValue: number;
-  trafficGrowth: number;
+  increasePercentage: number;
   rank: number;
-  createdAt: string;
-}) {
-  const traffic = trafficScore(trafficValue);
-  const momentum = momentumScore(trafficGrowth);
-  const ranking = rankingScore(rank);
-  const recency = recencyScore(createdAt);
+  startedAt?: string;
+  startTimestamp?: number;
+}): number {
+  const traffic = trafficScore(
+    params.trafficValue
+  );
+
+  const momentum = momentumScore(
+    params.increasePercentage
+  );
+
+  const ranking = rankingScore(
+    params.rank
+  );
+
+  const recency = recencyScore(
+    params.startedAt,
+    params.startTimestamp
+  );
 
   const score =
     traffic * 0.35 +
@@ -219,84 +217,59 @@ function calculateTrendScore({
     ranking * 0.2 +
     recency * 0.1;
 
-  return Math.round(score);
+  return Number(score.toFixed(2));
 }
 
-function getCategory(title: string, keyword = "") {
-  const value =
+function getCategory(
+  title: string,
+  keyword: string,
+  categories?: string[]
+): string {
+  const text =
     `${title} ${keyword}`.toLowerCase();
 
-  const sportsKeywords = [
-    "arsenal",
-    "chelsea",
-    "manchester",
+  const googleCategory = (categories || [])
+    .join(" ")
+    .toLowerCase();
+
+  const combined =
+    `${text} ${googleCategory}`;
+
+  const olahragaKeywords = [
+    "vs",
+    "versus",
+    "fc",
+    "psg",
     "liverpool",
-    "barcelona",
     "real madrid",
-    "madrid",
+    "real betis",
     "betis",
-    "koln",
-    "köln",
-    "hoffenheim",
-    "rodrygo",
-    "football",
-    "soccer",
-    "sepak bola",
+    "ipswich",
+    "monaco",
+    "arema",
+    "adhyaksa",
+    "bali united",
+    "pss",
+    "genoa",
+    "como",
+    "persija",
+    "borneo",
+    "persib",
+    "persis",
+    "persebaya",
     "liga",
-    "premier league",
-    "champions league",
-    "europa league",
+    "klasemen",
+    "sepak bola",
+    "football",
+    "fifa",
+    "uefa",
     "nba",
     "nfl",
-    "fifa",
+    "formula 1",
+    "motogp",
+    "tenis",
     "badminton",
     "bulutangkis",
-    "tennis",
-    "basket",
-    "voli",
-    "olahraga",
-    "athlete",
-    "pertandingan",
-    "china masters",
-    "bwf",
-    "world tour",
-    "turnamen",
-    "kejuaraan",
-    "psg",
-    "paris saint-germain",
-    "monaco",
-    "tiger woods",
-    "golf",
-    "f1",
-    "motogp",
-    "alcaraz",
-    "sabalenka",
-    "svitolina",
-    "persija",
-    "persib",
-    "borneo fc",
-    "borneo",
-    "arema",
-    "persebaya",
-    "pss",
-    "psis",
-    "bali united",
-    "dewa united",
-    "barito",
-    "madura united",
-    "malut united",
-    "semen padang",
-    "persis",
-    "persita",
-    "psbs",
-    "liga 1",
-    "liga 2",
-    "liga indonesia",
-    "bri super league",
-    "super league",
-    "piala",
-    "timnas",
-    "tim nasional",
   ];
 
   const gamingKeywords = [
@@ -305,356 +278,243 @@ function getCategory(title: string, keyword = "") {
     "mobile legends",
     "mlbb",
     "free fire",
+    "valorant",
     "pubg",
     "minecraft",
     "roblox",
+    "genshin",
     "playstation",
     "xbox",
     "nintendo",
     "steam",
   ];
 
-  const musicKeywords = [
-    "song",
-    "music",
+  const musikKeywords = [
+    "lagu",
     "musik",
+    "music",
     "album",
-    "singer",
-    "penyanyi",
     "konser",
     "concert",
+    "penyanyi",
+    "singer",
     "band",
-    "rapper",
-    "rap",
     "spotify",
+    "billboard",
   ];
 
-  const entertainmentKeywords = [
+  const hiburanKeywords = [
     "film",
     "movie",
+    "drakor",
+    "drama korea",
     "series",
-    "drama",
+    "serial",
     "artis",
-    "celebrity",
-    "seleb",
-    "actor",
-    "actress",
     "aktor",
     "aktris",
+    "seleb",
+    "celebrity",
     "netflix",
-    "tv",
-    "televisi",
-    "cinema",
-    "bioskop",
-    "marvel",
-    "spider-noir",
-    "spider noir",
-    "prime video",
+    "youtube",
+    "tiktok",
   ];
 
-  const technologyKeywords = [
+  const teknologiKeywords = [
     "iphone",
     "android",
     "samsung",
     "google",
     "apple",
-    "microsoft",
-    "technology",
-    "teknologi",
     "ai",
     "artificial intelligence",
+    "teknologi",
+    "technology",
     "chatgpt",
-    "openai",
-    "software",
-    "aplikasi",
-    "app",
-    "internet",
-    "gadget",
+    "gemini",
+    "windows",
+    "laptop",
     "smartphone",
   ];
 
-  const newsKeywords = [
-    "berita",
-    "banjir",
-    "gempa",
-    "tsunami",
-    "cuaca",
-    "hujan",
-    "angin",
-    "badai",
-    "kebakaran",
-    "kecelakaan",
-    "politik",
-    "pemerintah",
-    "presiden",
-    "menteri",
-    "dpr",
-    "rupslb",
-    "direktur",
-    "ekonomi",
-    "bisnis",
-    "rupiah",
-    "saham",
-    "polisi",
-    "hukum",
-    "pengadilan",
-    "hakim",
-    "vonis",
-    "kasus",
-    "dinsos",
-    "indonesia",
-    "jakarta",
-    "surabaya",
-    "yogyakarta",
-    "gempar",
-  ];
-
   if (
-    sportsKeywords.some((keyword) =>
-      value.includes(keyword)
+    olahragaKeywords.some((item) =>
+      combined.includes(item)
     )
   ) {
     return "Olahraga";
   }
 
   if (
-    gamingKeywords.some((keyword) =>
-      value.includes(keyword)
+    gamingKeywords.some((item) =>
+      combined.includes(item)
     )
   ) {
     return "Gaming";
   }
 
   if (
-    musicKeywords.some((keyword) =>
-      value.includes(keyword)
+    musikKeywords.some((item) =>
+      combined.includes(item)
     )
   ) {
     return "Musik";
   }
 
   if (
-    entertainmentKeywords.some((keyword) =>
-      value.includes(keyword)
+    hiburanKeywords.some((item) =>
+      combined.includes(item)
     )
   ) {
     return "Hiburan";
   }
 
   if (
-    technologyKeywords.some((keyword) =>
-      value.includes(keyword)
+    teknologiKeywords.some((item) =>
+      combined.includes(item)
     )
   ) {
     return "Teknologi";
   }
 
-  if (
-    newsKeywords.some((keyword) =>
-      value.includes(keyword)
-    )
-  ) {
-    return "Berita";
-  }
-
   return "Berita";
 }
 
-function calculateTrafficGrowth(
-  currentTraffic: number,
-  previousTraffic: number
-) {
-  if (previousTraffic <= 0) {
-    return 0;
+async function getGoogleTrends(): Promise<{
+  items: TrendItem[];
+  source: string;
+}> {
+  const result = await fetchTrendingNow({
+    geo: "ID",
+    hours: 24,
+    sort: "volume",
+    limit: 10,
+    fallback: "none",
+    timeoutMs: 20_000,
+  });
+
+  console.log("Google Trends result:", {
+    fetch_status: result?.fetch_status,
+    item_count: result?.items?.length || 0,
+    error: result?.error || null,
+  });
+
+  if (
+    result?.fetch_status !== "success" ||
+    !result?.items?.length
+  ) {
+    throw new Error(
+      result?.error ||
+        "Google Trends tidak mengembalikan data."
+    );
   }
 
-  return Math.round(
-    ((currentTraffic - previousTraffic) /
-      previousTraffic) *
+  return {
+    items: result.items as TrendItem[],
+    source: "Google Trends Trending Now",
+  };
+}
+
+function calculateTrafficGrowth(
+  currentValue: number,
+  previousValue: number
+): number {
+  if (previousValue <= 0) {
+    return currentValue > 0 ? 100 : 0;
+  }
+
+  return Number(
+    (
+      ((currentValue - previousValue) /
+        previousValue) *
       100
+    ).toFixed(2)
   );
 }
 
-function calculateRisingScore({
-  rankChange,
-  trafficGrowth,
-}: {
+function calculateRankChange(
+  previousRank: number,
+  currentRank: number
+): number {
+  if (!previousRank || !currentRank) {
+    return 0;
+  }
+
+  return previousRank - currentRank;
+}
+
+function calculateRisingScore(params: {
+  googleIncrease: number;
+  snapshotGrowth: number;
   rankChange: number;
-  trafficGrowth: number;
-}) {
-  const rankScore = Math.max(
-    0,
-    Math.min(100, rankChange * 20)
+  trafficValue: number;
+}): number {
+  /*
+   * Naik Tercepat:
+   *
+   * 50% = momentum Google Trends
+   * 25% = perubahan traffic snapshot RAMAIHARI
+   * 15% = kenaikan ranking
+   * 10% = kekuatan traffic saat ini
+   */
+
+  const googleMomentum = Math.min(
+    Math.max(params.googleIncrease, 0),
+    1000
   );
 
-  const growthScore = Math.max(
-    0,
-    Math.min(100, trafficGrowth / 3)
+  const snapshotMomentum = Math.min(
+    Math.max(params.snapshotGrowth, 0),
+    1000
   );
 
-  return Math.round(
-    rankScore * 0.5 +
-      growthScore * 0.5
+  const rankMomentum = Math.min(
+    Math.max(params.rankChange, 0),
+    10
   );
+
+  const traffic = trafficScore(
+    params.trafficValue
+  );
+
+  const score =
+    (googleMomentum / 10) * 0.5 +
+    (snapshotMomentum / 10) * 0.25 +
+    (rankMomentum * 10) * 0.15 +
+    traffic * 0.1;
+
+  return Number(score.toFixed(2));
 }
 
 export async function GET() {
   try {
     let items: TrendItem[] = [];
-    let usingFallback = false;
+    let source = "Google Trends Trending Now";
+    let fallback = false;
 
     /*
-     * ============================================================
+     * =========================================================
      * 1. GOOGLE TRENDS
-     * ============================================================
+     * =========================================================
      */
 
     try {
-      const controller =
-        new AbortController();
+      const googleData =
+        await getGoogleTrends();
 
-      const timeout = setTimeout(() => {
-        controller.abort();
-      }, 8000);
-
-      let response: Response;
-
-      try {
-        response = await fetch(
-          "https://trends.google.com/trending/rss?geo=ID",
-          {
-            cache: "no-store",
-            signal: controller.signal,
-            headers: {
-              Accept:
-                "application/rss+xml, application/xml, text/xml",
-              "User-Agent":
-                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/131.0 Safari/537.36",
-            },
-          }
-        );
-      } finally {
-        clearTimeout(timeout);
-      }
-
-      if (!response.ok) {
-        throw new Error(
-          `Google Trends returned ${response.status}`
-        );
-      }
-
-      const xml =
-        await response.text();
-
-      const itemMatches =
-        xml.match(
-          /<item\b[\s\S]*?<\/item>/gi
-        );
-
-      items = (itemMatches || [])
-        .slice(0, 10)
-        .map(
-          (itemXml, index) => {
-            const title =
-              getTopLevelTitle(
-                itemXml
-              );
-
-            const traffic =
-              getTagValue(
-                itemXml,
-                "ht:approx_traffic"
-              ) ||
-              getTagValue(
-                itemXml,
-                "approx_traffic"
-              );
-
-            const trafficValue =
-              parseTrafficValue(
-                traffic
-              );
-
-            const newsTitle =
-              getTagValue(
-                itemXml,
-                "ht:news_item_title"
-              );
-
-            const newsUrl =
-              getTagValue(
-                itemXml,
-                "ht:news_item_url"
-              );
-
-            const newsSource =
-              getTagValue(
-                itemXml,
-                "ht:news_item_source"
-              );
-
-            const picture =
-              getTagValue(
-                itemXml,
-                "ht:picture"
-              ) ||
-              getTagAttribute(
-                itemXml,
-                "ht:picture",
-                "url"
-              );
-
-            const pictureSource =
-              getTagValue(
-                itemXml,
-                "ht:picture_source"
-              );
-
-            const keyword =
-              title
-                .trim()
-                .toLowerCase();
-
-            return {
-              rank: index + 1,
-              title,
-              keyword,
-              traffic,
-              trafficValue,
-              newsTitle,
-              newsUrl,
-              newsSource,
-              picture,
-              pictureSource,
-            };
-          }
-        )
-        .filter(
-          (item) =>
-            item.title &&
-            item.keyword
-        );
-
-      if (items.length === 0) {
-        throw new Error(
-          "Tidak ada data trending dari Google Trends."
-        );
-      }
+      items = googleData.items;
+      source = googleData.source;
     } catch (googleError) {
-      /*
-       * ============================================================
-       * 2. SUPABASE FALLBACK
-       * ============================================================
-       */
-
-      console.error(
+      console.warn(
         "Google Trends unavailable, using Supabase fallback:",
         googleError
       );
 
+      fallback = true;
+
       const {
-        data: fallbackRows,
-        error: fallbackError,
+        data: fallbackData,
+        error,
       } = await supabaseServer
         .from("trends")
         .select(
@@ -675,313 +535,167 @@ export async function GET() {
           updated_at
           `
         )
-        .order(
-          "trend_rank",
-          {
-            ascending: true,
-          }
-        )
+        .order("trend_score", {
+          ascending: false,
+        })
         .limit(10);
 
-      if (fallbackError) {
-        throw fallbackError;
+      if (error) {
+        throw error;
       }
 
-      if (
-        !fallbackRows ||
-        fallbackRows.length === 0
-      ) {
-        throw new Error(
-          "Google Trends tidak tersedia dan belum ada data fallback di Supabase."
-        );
-      }
+      const fallbackRows =
+        (fallbackData || []) as TrendRow[];
 
-      usingFallback = true;
-
-      items = (
-        fallbackRows as TrendRow[]
-      )
-        .map(
-          (row, index) => {
-            const title =
-              row.title || "";
-
-            const keyword =
-              title
-                .trim()
-                .toLowerCase();
-
-            return {
-              rank: index + 1,
-              title,
-              keyword,
-              traffic:
-                row.traffic || "",
-              trafficValue:
-                Number(
-                  row.traffic_value ||
-                    0
-                ),
-              newsTitle: "",
-              newsUrl:
-                row.source_url || "",
-              newsSource:
-                row.source ||
-                "",
-              picture:
-                row.picture || "",
-              pictureSource:
-                row.picture_source ||
-                "",
-            };
-          }
-        )
-        .filter(
-          (item) =>
-            item.title &&
-            item.keyword
-        );
+      return NextResponse.json({
+        success: true,
+        source: "Supabase fallback",
+        country: "Indonesia",
+        updatedAt:
+          new Date().toISOString(),
+        total: fallbackRows.length,
+        fallback: true,
+        database: {
+          inserted: 0,
+          updated: 0,
+          snapshotsCreated: 0,
+          snapshotsSkipped: 0,
+        },
+        fastestRising: [],
+        trends: fallbackRows.map(
+          (row) => ({
+            id: row.id,
+            keyword: row.keyword,
+            title: row.title,
+            category: row.category,
+            traffic: row.traffic,
+            trafficValue:
+              row.traffic_value,
+            source: row.source,
+            sourceUrl:
+              row.source_url,
+            picture: row.picture,
+            pictureSource:
+              row.picture_source,
+            rank: row.trend_rank,
+            score: row.trend_score,
+            updatedAt:
+              row.updated_at,
+          })
+        ),
+      });
     }
 
     /*
-     * ============================================================
-     * 3. KEYWORDS
-     * ============================================================
+     * =========================================================
+     * 2. NORMALISASI GOOGLE TRENDS
+     * =========================================================
      */
 
-    const currentKeywords =
-      items.map(
+    const normalizedItems =
+      items
+        .map((item, index) => {
+          const keyword = cleanText(
+            item.query ||
+              item.normalized_query
+          );
+
+          if (!keyword) {
+            return null;
+          }
+
+          const rank =
+            Number(item.position) ||
+            Number(item.raw_position) ||
+            index + 1;
+
+          const trafficValue =
+            parseTrafficValue(
+              item.search_volume,
+              0
+            );
+
+          const traffic =
+            cleanText(
+              item.search_volume_label
+            ) ||
+            (trafficValue > 0
+              ? `${trafficValue}+`
+              : null);
+
+          const increasePercentage =
+            Number(
+              item.increase_percentage
+            ) || 0;
+
+          const title = keyword;
+
+          const category =
+            getCategory(
+              title,
+              keyword,
+              item.categories
+            );
+
+          const score =
+            calculateTrendScore({
+              trafficValue,
+              increasePercentage,
+              rank,
+              startedAt:
+                item.started_at,
+              startTimestamp:
+                item.start_timestamp,
+            });
+
+          return {
+            keyword,
+            title,
+            category,
+            traffic,
+            trafficValue,
+            rank,
+            score,
+            increasePercentage,
+            sourceUrl:
+              item.explore_url ||
+              `https://trends.google.com/trends/explore?date=now+1-d&geo=ID&q=${encodeURIComponent(
+                keyword
+              )}`,
+          };
+        })
+        .filter(Boolean) as Array<{
+        keyword: string;
+        title: string;
+        category: string;
+        traffic: string | null;
+        trafficValue: number;
+        rank: number;
+        score: number;
+        increasePercentage: number;
+        sourceUrl: string;
+      }>;
+
+    if (!normalizedItems.length) {
+      throw new Error(
+        "Google Trends tidak menghasilkan trend yang valid."
+      );
+    }
+
+    /*
+     * =========================================================
+     * 3. AMBIL TREND LAMA
+     * =========================================================
+     */
+
+    const keywords =
+      normalizedItems.map(
         (item) => item.keyword
       );
 
-    /*
-     * ============================================================
-     * 4. QUERY EXISTING DATA
-     * ============================================================
-     */
-
-    const [
-      existingResult,
-      allExistingResult,
-    ] = await Promise.all([
-      supabaseServer
-        .from("trends")
-        .select(
-          `
-          id,
-          keyword,
-          title,
-          category,
-          traffic,
-          traffic_value,
-          source,
-          source_url,
-          picture,
-          picture_source,
-          trend_rank,
-          trend_score,
-          created_at,
-          updated_at
-          `
-        )
-        .in(
-          "keyword",
-          currentKeywords
-        ),
-
-      supabaseServer
-        .from("trends")
-        .select(
-          `
-          id,
-          keyword,
-          title,
-          category,
-          traffic,
-          traffic_value,
-          source,
-          source_url,
-          picture,
-          picture_source,
-          trend_rank,
-          trend_score,
-          created_at,
-          updated_at
-          `
-        ),
-    ]);
-
-    if (existingResult.error) {
-      throw existingResult.error;
-    }
-
-    if (allExistingResult.error) {
-      throw allExistingResult.error;
-    }
-
-    const existingRows =
-      (existingResult.data ||
-        []) as TrendRow[];
-
-    const allExistingRows =
-      (allExistingResult.data ||
-        []) as TrendRow[];
-
-    const existingByKeyword =
-      new Map<string, TrendRow>();
-
-    const existingByTitle =
-      new Map<string, TrendRow>();
-
-    for (const row of allExistingRows) {
-      existingByKeyword.set(
-        row.keyword
-          .trim()
-          .toLowerCase(),
-        row
-      );
-
-      existingByTitle.set(
-        row.title
-          .trim()
-          .toLowerCase(),
-        row
-      );
-    }
-
-    /*
-     * ============================================================
-     * 5. UPDATE / INSERT TRENDS
-     * ============================================================
-     */
-
-    const currentTrendIds: string[] =
-      [];
-
-    let inserted = 0;
-    let updated = 0;
-
-    for (const item of items) {
-      const existing =
-        existingRows.find(
-          (row) =>
-            row.keyword
-              .trim()
-              .toLowerCase() ===
-            item.keyword
-        ) ||
-        existingByKeyword.get(
-          item.keyword
-        ) ||
-        existingByTitle.get(
-          item.title
-            .trim()
-            .toLowerCase()
-        );
-
-      const previousTraffic =
-        existing?.traffic_value || 0;
-
-      const trafficGrowth =
-        calculateTrafficGrowth(
-          item.trafficValue,
-          previousTraffic
-        );
-
-      const createdAt =
-        existing?.created_at ||
-        new Date().toISOString();
-
-      const trendScore =
-        calculateTrendScore({
-          trafficValue:
-            item.trafficValue,
-          trafficGrowth,
-          rank: item.rank,
-          createdAt,
-        });
-
-      const payload = {
-        keyword: item.keyword,
-        title: item.title,
-        category: getCategory(
-          item.title,
-          item.keyword
-        ),
-        traffic: item.traffic,
-        traffic_value:
-          item.trafficValue,
-        source:
-          usingFallback
-            ? existing?.source ||
-              "Google Trends"
-            : "Google Trends",
-        source_url:
-          item.newsUrl ||
-          existing?.source_url ||
-          null,
-        picture:
-          item.picture ||
-          existing?.picture ||
-          null,
-        picture_source:
-          item.pictureSource ||
-          existing?.picture_source ||
-          null,
-        trend_rank: item.rank,
-        trend_score: trendScore,
-        updated_at:
-          new Date().toISOString(),
-      };
-
-      if (existing) {
-        const { error } =
-          await supabaseServer
-            .from("trends")
-            .update(payload)
-            .eq(
-              "id",
-              existing.id
-            );
-
-        if (error) {
-          throw error;
-        }
-
-        currentTrendIds.push(
-          existing.id
-        );
-
-        updated++;
-      } else {
-        const { data, error } =
-          await supabaseServer
-            .from("trends")
-            .insert(payload)
-            .select("id")
-            .single();
-
-        if (error) {
-          throw error;
-        }
-
-        currentTrendIds.push(
-          data.id
-        );
-
-        inserted++;
-      }
-    }
-
-    /*
-     * ============================================================
-     * 6. CURRENT TRENDS
-     * ============================================================
-     */
-
     const {
-      data: currentRows,
-      error: currentRowsError,
+      data: existingData,
+      error: existingError,
     } = await supabaseServer
       .from("trends")
       .select(
@@ -1002,465 +716,470 @@ export async function GET() {
         updated_at
         `
       )
-      .in(
-        "id",
-        currentTrendIds
-      )
-      .order(
-        "trend_rank",
-        {
-          ascending: true,
-        }
-      );
+      .in("keyword", keywords);
 
-    if (currentRowsError) {
-      throw currentRowsError;
+    if (existingError) {
+      throw existingError;
     }
 
-    const currentTrendRows =
-      (currentRows ||
-        []) as TrendRow[];
+    const existingRows =
+      (existingData || []) as TrendRow[];
+
+    const existingByKeyword =
+      new Map(
+        existingRows.map(
+          (row) => [
+            row.keyword.toLowerCase(),
+            row,
+          ]
+        )
+      );
 
     /*
-     * ============================================================
-     * 7. AMBIL SEMUA SNAPSHOT SEKALIGUS
-     * ============================================================
+     * =========================================================
+     * 4. AMBIL SNAPSHOT TERAKHIR
+     * =========================================================
      */
 
-    const {
-      data: snapshotRows,
-      error: snapshotRowsError,
-    } = await supabaseServer
-      .from("trend_snapshots")
-      .select(
-        `
-        id,
-        trend_id,
-        traffic,
-        traffic_value,
-        trend_rank,
-        recorded_at
-        `
-      )
-      .in(
-        "trend_id",
-        currentTrendIds
-      )
-      .order(
-        "recorded_at",
-        {
+    const existingTrendIds =
+      existingRows.map(
+        (row) => row.id
+      );
+
+    let previousSnapshots:
+      SnapshotRow[] = [];
+
+    if (existingTrendIds.length > 0) {
+      const {
+        data: snapshotData,
+        error: snapshotError,
+      } = await supabaseServer
+        .from("trend_snapshots")
+        .select(
+          `
+          id,
+          trend_id,
+          traffic,
+          traffic_value,
+          trend_rank,
+          recorded_at
+          `
+        )
+        .in(
+          "trend_id",
+          existingTrendIds
+        )
+        .order("recorded_at", {
           ascending: false,
-        }
-      );
+        });
 
-    if (snapshotRowsError) {
-      throw snapshotRowsError;
-    }
-
-    const snapshots =
-      (snapshotRows ||
-        []) as SnapshotRow[];
-
-    const snapshotsByTrend =
-      new Map<
-        string,
-        SnapshotRow[]
-      >();
-
-    for (const snapshot of snapshots) {
-      const history =
-        snapshotsByTrend.get(
-          snapshot.trend_id
-        ) || [];
-
-      history.push(snapshot);
-
-      snapshotsByTrend.set(
-        snapshot.trend_id,
-        history
-      );
-    }
-
-    /*
-     * ============================================================
-     * 8. SNAPSHOT INSERT
-     * ============================================================
-     */
-
-    let snapshotsCreated = 0;
-    let snapshotsSkipped = 0;
-
-    for (const row of currentTrendRows) {
-      const currentItem =
-        items.find(
-          (item) =>
-            item.keyword ===
-            row.keyword
-        );
-
-      if (!currentItem) {
-        continue;
+      if (snapshotError) {
+        throw snapshotError;
       }
 
-      const history =
-        snapshotsByTrend.get(
-          row.id
-        ) || [];
+      const latestByTrend =
+        new Map<
+          string,
+          SnapshotRow
+        >();
 
-      const latest =
-        history[0];
+      for (
+        const snapshot of
+          (snapshotData ||
+            []) as SnapshotRow[]
+      ) {
+        if (
+          !latestByTrend.has(
+            snapshot.trend_id
+          )
+        ) {
+          latestByTrend.set(
+            snapshot.trend_id,
+            snapshot
+          );
+        }
+      }
 
-      const currentTraffic =
-        currentItem.trafficValue;
+      previousSnapshots =
+        Array.from(
+          latestByTrend.values()
+        );
+    }
 
-      const currentRank =
-        currentItem.rank;
+    const previousSnapshotByTrendId =
+      new Map(
+        previousSnapshots.map(
+          (snapshot) => [
+            snapshot.trend_id,
+            snapshot,
+          ]
+        )
+      );
 
-      const shouldCreateSnapshot =
-        !latest ||
-        Number(
-          latest.traffic_value || 0
-        ) !== currentTraffic ||
-        Number(
-          latest.trend_rank || 0
-        ) !== currentRank;
+    /*
+     * =========================================================
+     * 5. UPSERT TREND
+     * =========================================================
+     */
 
-      if (shouldCreateSnapshot) {
+    let inserted = 0;
+    let updated = 0;
+
+    const savedRows: TrendRow[] = [];
+
+    for (
+      const item of normalizedItems
+    ) {
+      const existing =
+        existingByKeyword.get(
+          item.keyword.toLowerCase()
+        );
+
+      const payload = {
+        keyword: item.keyword,
+        title: item.title,
+        category: item.category,
+        traffic: item.traffic,
+        traffic_value:
+          item.trafficValue,
+        source,
+        source_url:
+          item.sourceUrl,
+        trend_rank: item.rank,
+        trend_score:
+          item.score,
+        updated_at:
+          new Date().toISOString(),
+      };
+
+      if (existing) {
         const {
-          data: insertedSnapshot,
-          error:
-            snapshotInsertError,
+          data,
+          error,
         } = await supabaseServer
-          .from("trend_snapshots")
-          .insert({
-            trend_id: row.id,
-            traffic:
-              currentItem.traffic,
-            traffic_value:
-              currentTraffic,
-            trend_rank:
-              currentRank,
-          })
+          .from("trends")
+          .update(payload)
+          .eq("id", existing.id)
           .select(
             `
             id,
-            trend_id,
+            keyword,
+            title,
+            category,
             traffic,
             traffic_value,
+            source,
+            source_url,
+            picture,
+            picture_source,
             trend_rank,
-            recorded_at
+            trend_score,
+            created_at,
+            updated_at
             `
           )
           .single();
 
-        if (snapshotInsertError) {
-          throw snapshotInsertError;
+        if (error) {
+          throw error;
         }
 
-        const snapshot =
-          insertedSnapshot as SnapshotRow;
-
-        const updatedHistory =
-          snapshotsByTrend.get(
-            row.id
-          ) || [];
-
-        updatedHistory.unshift(
-          snapshot
+        savedRows.push(
+          data as TrendRow
         );
 
-        snapshotsByTrend.set(
-          row.id,
-          updatedHistory
-        );
-
-        snapshotsCreated++;
+        updated++;
       } else {
-        snapshotsSkipped++;
+        const {
+          data,
+          error,
+        } = await supabaseServer
+          .from("trends")
+          .insert(payload)
+          .select(
+            `
+            id,
+            keyword,
+            title,
+            category,
+            traffic,
+            traffic_value,
+            source,
+            source_url,
+            picture,
+            picture_source,
+            trend_rank,
+            trend_score,
+            created_at,
+            updated_at
+            `
+          )
+          .single();
+
+        if (error) {
+          throw error;
+        }
+
+        savedRows.push(
+          data as TrendRow
+        );
+
+        inserted++;
       }
     }
 
     /*
-     * ============================================================
-     * 9. FASTEST RISING
-     * ============================================================
+     * =========================================================
+     * 6. BUAT MAP GOOGLE MOMENTUM
+     * =========================================================
      */
 
-    const fastestRising: FastestRising[] =
-      [];
+    const googleMomentumByKeyword =
+      new Map(
+        normalizedItems.map(
+          (item) => [
+            item.keyword.toLowerCase(),
+            item.increasePercentage,
+          ]
+        )
+      );
 
-    for (const row of currentTrendRows) {
-      const history =
-        snapshotsByTrend.get(
-          row.id
-        ) || [];
+    /*
+     * =========================================================
+     * 7. HITUNG NAIK TERCEPAT
+     * =========================================================
+     */
 
-      if (history.length < 2) {
-        continue;
-      }
+    const fastestRising:
+      FastestRising[] = [];
 
-      const latest =
-        history[0];
-
+    for (
+      const row of savedRows
+    ) {
       const previous =
-        history[1];
-
-      const currentTraffic =
-        Number(
-          latest.traffic_value ||
-            0
+        previousSnapshotByTrendId.get(
+          row.id
         );
 
-      const previousTraffic =
+      const googleIncrease =
+        googleMomentumByKeyword.get(
+          row.keyword.toLowerCase()
+        ) || 0;
+
+      /*
+       * Trend baru tidak punya snapshot lama.
+       * Tetapi tetap bisa masuk Naik Tercepat
+       * jika Google memberikan momentum yang kuat.
+       */
+
+      const previousTrafficValue =
+        previous?.traffic_value || 0;
+
+      const currentTrafficValue =
         Number(
-          previous.traffic_value ||
-            0
+          row.traffic_value || 0
         );
 
-      const currentRank =
-        Number(
-          latest.trend_rank || 0
-        );
+      const snapshotGrowth =
+        previous
+          ? calculateTrafficGrowth(
+              currentTrafficValue,
+              previousTrafficValue
+            )
+          : 0;
 
       const previousRank =
-        Number(
-          previous.trend_rank || 0
-        );
-
-      const latestTrafficGrowth =
-        calculateTrafficGrowth(
-          currentTraffic,
-          previousTraffic
-        );
+        previous?.trend_rank ||
+        row.trend_rank;
 
       const rankChange =
-        previousRank -
-        currentRank;
+        previous
+          ? calculateRankChange(
+              previousRank,
+              row.trend_rank
+            )
+          : 0;
 
-      let bestTrafficGrowth =
-        latestTrafficGrowth;
+      /*
+       * Minimal momentum:
+       *
+       * - Google increase > 0
+       * ATAU
+       * - traffic RAMAIHARI naik
+       * ATAU
+       * - ranking naik
+       */
 
-      let bestPreviousTraffic =
-        previousTraffic;
+      const hasMomentum =
+        googleIncrease > 0 ||
+        snapshotGrowth > 0 ||
+        rankChange > 0;
 
-      let bestCurrentTraffic =
-        currentTraffic;
-
-      for (
-        let index = 0;
-        index <
-        history.length - 1;
-        index++
-      ) {
-        const current =
-          Number(
-            history[index]
-              .traffic_value ||
-              0
-          );
-
-        const previousItem =
-          Number(
-            history[index + 1]
-              .traffic_value ||
-              0
-          );
-
-        const growth =
-          calculateTrafficGrowth(
-            current,
-            previousItem
-          );
-
-        if (
-          growth >
-          bestTrafficGrowth
-        ) {
-          bestTrafficGrowth =
-            growth;
-
-          bestPreviousTraffic =
-            previousItem;
-
-          bestCurrentTraffic =
-            current;
-        }
+      if (!hasMomentum) {
+        continue;
       }
 
       const risingScore =
         calculateRisingScore({
+          googleIncrease,
+          snapshotGrowth,
           rankChange,
-          trafficGrowth:
-            latestTrafficGrowth,
+          trafficValue:
+            currentTrafficValue,
         });
 
       fastestRising.push({
-        trendId: row.id,
+        id: row.id,
         keyword: row.keyword,
         title: row.title,
-        currentRank,
+        category: row.category,
+        currentTraffic:
+          row.traffic,
+        currentTrafficValue,
+        previousTraffic:
+          previous?.traffic || null,
+        previousTrafficValue,
+        growth: snapshotGrowth,
+        googleIncrease,
+        rank: row.trend_rank,
         previousRank,
         rankChange,
-        trafficValue:
-          currentTraffic,
-        previousTrafficValue:
-          previousTraffic,
-        latestTrafficGrowth,
-        bestTrafficGrowth,
-        bestPreviousTraffic,
-        bestCurrentTraffic,
-        trafficGrowth:
-          latestTrafficGrowth,
-        risingScore,
+        score: risingScore,
       });
     }
 
-    fastestRising.sort(
-      (a, b) =>
-        b.risingScore -
-        a.risingScore
-    );
-
     /*
-     * ============================================================
-     * 10. NEWS MAP
-     * ============================================================
+     * =========================================================
+     * PRIORITAS NAIK TERCEPAT
+     * =========================================================
+     *
+     * Urutan:
+     * 1. Rising score
+     * 2. Momentum Google
+     * 3. Growth snapshot
+     * 4. Kenaikan ranking
+     * 5. Rank sekarang
+     *
+     * Hanya 5 topik teratas yang ditampilkan.
      */
 
-    const newsTitleMap =
-      new Map<
-        string,
-        string
-      >();
+    fastestRising.sort((a, b) => {
+      if (b.score !== a.score) {
+        return b.score - a.score;
+      }
 
-    const newsSourceMap =
-      new Map<
-        string,
-        string
-      >();
-
-    for (const item of items) {
-      if (item.newsTitle) {
-        newsTitleMap.set(
-          item.keyword,
-          item.newsTitle
+      if (
+        b.googleIncrease !==
+        a.googleIncrease
+      ) {
+        return (
+          b.googleIncrease -
+          a.googleIncrease
         );
       }
 
-      if (item.newsSource) {
-        newsSourceMap.set(
-          item.keyword,
-          item.newsSource
+      if (b.growth !== a.growth) {
+        return b.growth - a.growth;
+      }
+
+      if (
+        b.rankChange !==
+        a.rankChange
+      ) {
+        return (
+          b.rankChange -
+          a.rankChange
         );
       }
+
+      return a.rank - b.rank;
+    });
+
+    const fastestRisingTop =
+      fastestRising.slice(0, 5);
+
+    /*
+     * =========================================================
+     * 8. SIMPAN SNAPSHOT BARU
+     * =========================================================
+     */
+
+    let snapshotsCreated = 0;
+
+    for (
+      const row of savedRows
+    ) {
+      const {
+        error,
+      } = await supabaseServer
+        .from("trend_snapshots")
+        .insert({
+          trend_id: row.id,
+          traffic: row.traffic,
+          traffic_value:
+            row.traffic_value,
+          trend_rank:
+            row.trend_rank,
+          recorded_at:
+            new Date().toISOString(),
+        });
+
+      if (error) {
+        throw error;
+      }
+
+      snapshotsCreated++;
     }
 
     /*
-     * ============================================================
-     * 11. FINAL TRENDS
-     * ============================================================
+     * =========================================================
+     * 9. RESPONSE
+     * =========================================================
      */
 
-    const trends: Trend[] =
-      currentTrendRows.map(
-        (row) => {
-          const history =
-            snapshotsByTrend.get(
-              row.id
-            ) || [];
-
-          let trafficGrowth = 0;
-
-          if (history.length >= 2) {
-            trafficGrowth =
-              calculateTrafficGrowth(
-                Number(
-                  history[0]
-                    .traffic_value ||
-                    0
-                ),
-                Number(
-                  history[1]
-                    .traffic_value ||
-                    0
-                )
-              );
-          }
-
-          return {
-            id: row.id,
-            rank: Number(
-              row.trend_rank || 0
-            ),
-            title: row.title,
-            keyword: row.keyword,
-            traffic:
-              row.traffic || "",
-            trafficValue:
-              Number(
-                row.traffic_value ||
-                  0
-              ),
-            trendScore: Math.round(
-              Number(
-                row.trend_score || 0
-              )
-            ),
-            category:
-              row.category ||
-              getCategory(
-                row.title,
-                row.keyword
-              ),
-            newsTitle:
-              newsTitleMap.get(
-                row.keyword
-              ) || "",
-            newsUrl:
-              row.source_url || "",
-            newsSource:
-              newsSourceMap.get(
-                row.keyword
-              ) ||
-              row.source ||
-              "",
-            picture:
-              row.picture || "",
-            pictureSource:
-              row.picture_source ||
-              "",
-            trafficGrowth,
-          };
-        }
-      );
-
-    /*
-     * ============================================================
-     * 12. RESPONSE
-     * ============================================================
-     */
+    const trends =
+      savedRows
+        .sort(
+          (a, b) =>
+            a.trend_rank -
+            b.trend_rank
+        )
+        .map((row) => ({
+          id: row.id,
+          keyword: row.keyword,
+          title: row.title,
+          category: row.category,
+          traffic: row.traffic,
+          trafficValue:
+            row.traffic_value,
+          source: row.source,
+          sourceUrl:
+            row.source_url,
+          picture: row.picture,
+          pictureSource:
+            row.picture_source,
+          rank: row.trend_rank,
+          score: row.trend_score,
+          updatedAt:
+            row.updated_at,
+        }));
 
     return NextResponse.json({
       success: true,
-      source: usingFallback
-        ? "Supabase fallback"
-        : "Google Trends",
+      source,
       country: "Indonesia",
       updatedAt:
         new Date().toISOString(),
       total: trends.length,
-      fallback: usingFallback,
+      fallback,
       database: {
         inserted,
         updated,
         snapshotsCreated,
-        snapshotsSkipped,
+        snapshotsSkipped: 0,
       },
       fastestRising:
-        fastestRising.slice(
-          0,
-          5
-        ),
+        fastestRisingTop,
       trends,
     });
   } catch (error) {

@@ -19,20 +19,20 @@ type Trend = {
 };
 
 type FastestRising = {
-  trendId: string;
+  id: string;
   keyword: string;
   title: string;
-  currentRank: number;
+  category?: string;
+  rank: number;
   previousRank: number | null;
   rankChange: number;
-  trafficValue: number;
+  currentTraffic: string;
+  currentTrafficValue: number;
+  previousTraffic: string;
   previousTrafficValue: number;
-  latestTrafficGrowth: number;
-  bestTrafficGrowth: number;
-  bestPreviousTraffic: number;
-  bestCurrentTraffic: number;
-  trafficGrowth: number;
-  risingScore: number;
+  growth: number;
+  googleIncrease: number;
+  score: number;
 };
 
 type TrendsResponse = {
@@ -416,55 +416,110 @@ export default function Home() {
                 ) : (
                   <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
                     {fastestRising.map(
-                      (item) => (
-                        <article
-                          key={
-                            item.trendId
-                          }
-                          className="rounded-3xl border border-zinc-200 bg-white p-5"
-                        >
-                          <div className="flex items-start justify-between gap-3">
-                            <span className="flex h-10 w-10 items-center justify-center rounded-2xl bg-green-50 text-lg">
-                              🚀
-                            </span>
+                      (item) => {
+                        const googleGrowth =
+                          item.googleIncrease ||
+                          0;
 
-                            <span className="rounded-full bg-green-50 px-2.5 py-1 text-xs font-black text-green-600">
-                              +
-                              {
-                                item.trafficGrowth
-                              }
-                              %
-                            </span>
-                          </div>
+                        const trafficGrowth =
+                          item.growth || 0;
 
-                          <h3 className="mt-4 text-lg font-black capitalize">
-                            {
-                              item.title
+                        const growth =
+                          googleGrowth > 0
+                            ? googleGrowth
+                            : trafficGrowth;
+
+                        return (
+                          <article
+                            key={
+                              item.id
                             }
-                          </h3>
+                            className="group rounded-3xl border border-zinc-200 bg-white p-5 transition hover:-translate-y-0.5 hover:border-green-200 hover:shadow-lg"
+                          >
+                            <div className="flex items-start justify-between gap-3">
+                              <span className="flex h-10 w-10 items-center justify-center rounded-2xl bg-green-50 text-lg">
+                                🚀
+                              </span>
 
-                          <div className="mt-3 space-y-1 text-sm text-zinc-500">
-                            <p>
-                              Rank sekarang:{" "}
-                              <strong className="text-zinc-900">
-                                #
-                                {
-                                  item.currentRank
-                                }
-                              </strong>
-                            </p>
+                              {growth > 0 && (
+                                <span className="rounded-full bg-green-50 px-2.5 py-1 text-xs font-black text-green-600">
+                                  +
+                                  {growth}
+                                  %
+                                </span>
+                              )}
+                            </div>
 
-                            <p>
-                              Traffic:{" "}
-                              <strong className="text-zinc-900">
-                                {formatNumber(
-                                  item.trafficValue
+                            <h3 className="mt-4 text-lg font-black capitalize leading-snug">
+                              {
+                                item.title
+                              }
+                            </h3>
+
+                            {item.category && (
+                              <div className="mt-2">
+                                <span className="rounded-full bg-zinc-100 px-2.5 py-1 text-xs font-bold text-zinc-600">
+                                  {
+                                    item.category
+                                  }
+                                </span>
+                              </div>
+                            )}
+
+                            <div className="mt-4 space-y-2 text-sm text-zinc-500">
+                              <p>
+                                Rank sekarang:{" "}
+                                <strong className="text-zinc-900">
+                                  #
+                                  {
+                                    item.rank
+                                  }
+                                </strong>
+                              </p>
+
+                              <p>
+                                Traffic:{" "}
+                                <strong className="text-zinc-900">
+                                  {
+                                    item.currentTraffic
+                                  }
+                                </strong>
+                              </p>
+
+                              {item.previousRank !==
+                                null &&
+                                item.rankChange >
+                                  0 && (
+                                  <p className="font-semibold text-green-600">
+                                    ↑ Naik{" "}
+                                    {
+                                      item.rankChange
+                                    }{" "}
+                                    posisi
+                                  </p>
                                 )}
-                              </strong>
-                            </p>
-                          </div>
-                        </article>
-                      )
+                            </div>
+
+                            {googleGrowth >
+                              0 && (
+                              <div className="mt-4 border-t border-zinc-100 pt-3">
+                                <p className="text-xs font-semibold text-zinc-400">
+                                  Momentum Google
+                                  Trends
+                                </p>
+
+                                <p className="mt-1 text-sm font-black text-green-600">
+                                  +
+                                  {
+                                    googleGrowth
+                                  }
+                                  %
+                                </p>
+                              </div>
+                            )}
+                          </article>
+                        );
+                      }
                     )}
                   </div>
                 )}
@@ -606,6 +661,7 @@ export default function Home() {
                             0
                           )
                         )}
+                        +
                       </p>
                     </div>
 
@@ -616,8 +672,11 @@ export default function Home() {
 
                       <p className="mt-1 font-black">
                         {fastestRising[0]
-                          ?.trafficGrowth
-                          ? `+${fastestRising[0].trafficGrowth}%`
+                          ?.googleIncrease
+                          ? `+${fastestRising[0].googleIncrease}%`
+                          : fastestRising[0]
+                              ?.growth
+                          ? `+${fastestRising[0].growth}%`
                           : "-"}
                       </p>
                     </div>
