@@ -1,8 +1,6 @@
 
 import { NextResponse } from "next/server";
-
 import { fetchTrendingNow } from "google-trends-now";
-
 import { supabaseServer } from "@/lib/supabase-server";
 
 type TrendItem = {
@@ -148,6 +146,7 @@ function momentumScore(
   if (growth >= 10) return 50;
   if (growth > 0) return 40;
   if (growth === 0) return 25;
+
   return 10;
 }
 
@@ -158,6 +157,7 @@ function rankingScore(rank: number): number {
   if (rank <= 5) return 80;
   if (rank <= 10) return 70;
   if (rank <= 20) return 60;
+
   return 50;
 }
 
@@ -181,6 +181,7 @@ function recencyScore(dateValue: unknown): number {
   if (ageHours <= 12) return 70;
   if (ageHours <= 24) return 60;
   if (ageHours <= 48) return 40;
+
   return 20;
 }
 
@@ -311,29 +312,23 @@ async function getGoogleTrends(): Promise<TrendItem[]> {
               item?.normalized_query ??
               ""
           ),
-
           keyword: cleanText(
             item?.normalized_query ??
               item?.query ??
               ""
           ),
-
           traffic: cleanText(
             item?.search_volume_label ??
               item?.search_volume ??
               ""
           ),
-
           trafficValue: Number(
             item?.search_volume ?? 0
           ),
-
           link:
             item?.explore_url ??
             undefined,
-
           picture: undefined,
-
           source:
             item?.source ??
             "Google Trends",
@@ -685,14 +680,11 @@ async function resolveNewsRedirect(
           headers: {
             Accept:
               "text/html,application/xhtml+xml",
-
             "User-Agent":
               "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/131 Safari/537.36",
           },
-
           cache: "no-store",
           redirect: "follow",
-
           signal:
             AbortSignal.timeout(
               8000
@@ -985,11 +977,9 @@ function extractPublisherUrlFromRpc(
   }
 
   const patterns = [
-    /garturlres[^"]*"(https?:\\?\/\\?\/[^"\\\s]+)/i,
-
-    /\["garturlres"\s*,\s*"(https?:\\?\/\\?\/[^"]+)"/i,
-
-    /\\"garturlres\\"\s*,\s*\\"(https?:\\?\/\\?\/[^"\\]+)\\"/i,
+    /garturlres[^"]*"((?:https?:\\?\/\\?\/)[^"\\\s]+)/i,
+    /\["garturlres"\s*,\s*"((?:https?:\\?\/\\?\/)[^"]+)"/i,
+    /\\"garturlres\\"\s*,\s*\\"((?:https?:\\?\/\\?\/)[^"\\]+)/i,
   ];
 
   for (const pattern of patterns) {
@@ -1032,14 +1022,8 @@ async function resolveGoogleNewsUrl(
   googleNewsUrl: string
 ): Promise<string | null> {
   try {
-    if (
-      !isGoogleNewsUrl(
-        googleNewsUrl
-      )
-    ) {
-      return isValidHttpUrl(
-        googleNewsUrl
-      )
+    if (!isGoogleNewsUrl(googleNewsUrl)) {
+      return isValidHttpUrl(googleNewsUrl)
         ? googleNewsUrl
         : null;
     }
@@ -1055,9 +1039,7 @@ async function resolveGoogleNewsUrl(
 
     if (
       legacyUrl &&
-      !isGoogleNewsUrl(
-        legacyUrl
-      )
+      !isGoogleNewsUrl(legacyUrl)
     ) {
       return legacyUrl;
     }
@@ -1073,17 +1055,13 @@ async function resolveGoogleNewsUrl(
           headers: {
             Accept:
               "text/html,application/xhtml+xml",
-
             "Accept-Language":
               "id-ID,id;q=0.9,en;q=0.8",
-
             "User-Agent":
               "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
           },
-
           cache: "no-store",
           redirect: "follow",
-
           signal:
             AbortSignal.timeout(
               10000
@@ -1163,7 +1141,7 @@ async function resolveGoogleNewsUrl(
      *
      * data-p Google biasanya berbentuk:
      *
-     * %.\@.["garturlreq", ...]
+     * %.@.["garturlreq", ...]
      */
     let parsedDataP: unknown;
 
@@ -1188,9 +1166,7 @@ async function resolveGoogleNewsUrl(
     }
 
     if (
-      !Array.isArray(
-        parsedDataP
-      )
+      !Array.isArray(parsedDataP)
     ) {
       return null;
     }
@@ -1244,6 +1220,10 @@ async function resolveGoogleNewsUrl(
         )
       )}`;
 
+    /**
+     * PENTING:
+     * URL harus URL asli, bukan format Markdown.
+     */
     const endpoint =
       "https://news.google.com/_/DotsSplashUi/data/batchexecute?rpcids=Fbv4je";
 
@@ -1251,44 +1231,52 @@ async function resolveGoogleNewsUrl(
      * STEP 5
      * Kirim ke Google.
      */
-    const rpcResponse =
-      await fetch(
-        endpoint,
-        {
-          method: "POST",
+    let rpcResponse: Response;
 
-          headers: {
-            "Content-Type":
-              "application/x-www-form-urlencoded;charset=UTF-8",
+    try {
+      rpcResponse =
+        await fetch(
+          endpoint,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type":
+                "application/x-www-form-urlencoded;charset=UTF-8",
+              Accept:
+                "*/*",
+              Referer:
+                googleNewsUrl,
+              Origin:
+                "https://news.google.com",
+              "User-Agent":
+                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
+            },
+            body:
+              requestBody,
+            cache:
+              "no-store",
+            redirect:
+              "follow",
+            signal:
+              AbortSignal.timeout(
+                10000
+              ),
+          }
+        );
 
-            Accept:
-              "*/*",
-
-            Referer:
-              googleNewsUrl,
-
-            Origin:
-              "https://news.google.com",
-
-            "User-Agent":
-              "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
-          },
-
-          body:
-            requestBody,
-
-          cache:
-            "no-store",
-
-          redirect:
-            "follow",
-
-          signal:
-            AbortSignal.timeout(
-              10000
-            ),
-        }
+      console.log(
+        "GOOGLE NEWS RPC STATUS:",
+        rpcResponse.status,
+        rpcResponse.ok
       );
+    } catch (error) {
+      console.error(
+        "GOOGLE NEWS RPC FETCH ERROR:",
+        error
+      );
+
+      return null;
+    }
 
     if (!rpcResponse.ok) {
       console.error(
@@ -1298,12 +1286,6 @@ async function resolveGoogleNewsUrl(
 
       return null;
     }
-    
-console.log(
-  "GOOGLE NEWS RPC STATUS:",
-  rpcResponse.status,
-  rpcResponse.ok
-);
 
     const responseText =
       await rpcResponse.text();
@@ -1383,14 +1365,11 @@ async function getArticleMetadata(
           headers: {
             Accept:
               "text/html,application/xhtml+xml",
-
             "User-Agent":
               "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/131 Safari/537.36",
           },
-
           cache: "no-store",
           redirect: "follow",
-
           signal:
             AbortSignal.timeout(
               8000
@@ -1470,9 +1449,7 @@ async function getArticleMetadata(
         )
           ? canonicalUrl
           : finalUrl,
-
       title,
-
       summary:
         isGenericGoogleNewsSummary(
           summary
@@ -1514,14 +1491,11 @@ async function getRelatedNews(
           headers: {
             Accept:
               "application/rss+xml, application/xml, text/xml",
-
             "User-Agent":
               "RAMAIHARI/1.0",
           },
-
           cache:
             "no-store",
-
           signal:
             AbortSignal.timeout(
               8000
@@ -1716,15 +1690,11 @@ async function getRelatedNews(
     return {
       title:
         finalTitle,
-
       summary:
         articleSummary,
-
       source,
-
       url:
         finalArticleUrl,
-
       publishedAt,
     };
   } catch (error) {
@@ -1896,9 +1866,7 @@ async function calculateRisingScore(
       Math.round(
         growthPercent * 100
       ) / 100,
-
     rankChange,
-
     risingScore,
   };
 }
@@ -1979,58 +1947,42 @@ export async function GET() {
           (row) => ({
             id:
               row.id,
-
             keyword:
               row.keyword,
-
             title:
               row.title,
-
             category:
               row.category,
-
             traffic:
               row.traffic,
-
             trafficValue:
               Number(
                 row.traffic_value ??
                   0
               ),
-
             source:
               row.source,
-
             sourceUrl:
               row.source_url,
-
             picture:
               row.picture,
-
             pictureSource:
               row.picture_source,
-
             rank:
               row.trend_rank,
-
             score:
               Number(
                 row.trend_score ??
                   0
               ),
-
             newsTitle:
               row.news_title,
-
             newsSummary:
               row.news_summary,
-
             newsSource:
               row.news_source,
-
             newsUrl:
               row.news_url,
-
             newsPublishedAt:
               row.news_published_at,
           })
@@ -2038,32 +1990,24 @@ export async function GET() {
 
       return NextResponse.json({
         success: true,
-
         source:
           trendsSource,
-
         country:
           "Indonesia",
-
         updatedAt:
           new Date().toISOString(),
-
         total:
           trends.length,
-
         fallback:
           true,
-
         database: {
           inserted: 0,
           updated: 0,
           snapshotsCreated: 0,
           snapshotsSkipped: 0,
         },
-
         fastestRising:
           [],
-
         trends,
       });
     }
@@ -2107,32 +2051,26 @@ export async function GET() {
             return {
               keyword,
               title,
-
               traffic:
                 traffic ||
                 String(
                   trafficValue
                 ),
-
               trafficValue:
                 Number.isFinite(
                   trafficValue
                 )
                   ? trafficValue
                   : 0,
-
               source:
                 item.source ??
                 null,
-
               sourceUrl:
                 item.link ??
                 null,
-
               picture:
                 item.picture ??
                 null,
-
               rank:
                 index + 1,
             };
@@ -2470,34 +2408,26 @@ export async function GET() {
         fastestRising.push({
           keyword:
             row.keyword,
-
           title:
             row.title,
-
           category:
             row.category,
-
           traffic:
             row.traffic,
-
           trafficValue:
             Number(
               row.traffic_value ??
                 0
             ),
-
           rank:
             row.trend_rank,
-
           score:
             Number(
               row.trend_score ??
                 0
             ),
-
           growthPercent:
             rising.growthPercent,
-
           risingScore:
             rising.risingScore,
         });
@@ -2574,19 +2504,15 @@ export async function GET() {
             .insert({
               trend_id:
                 row.id,
-
               traffic:
                 row.traffic,
-
               traffic_value:
                 Number(
                   row.traffic_value ??
                     0
                 ),
-
               trend_rank:
                 row.trend_rank,
-
               recorded_at:
                 now,
             });
@@ -2618,58 +2544,42 @@ export async function GET() {
         (row) => ({
           id:
             row.id,
-
           keyword:
             row.keyword,
-
           title:
             row.title,
-
           category:
             row.category,
-
           traffic:
             row.traffic,
-
           trafficValue:
             Number(
               row.traffic_value ??
                 0
             ),
-
           source:
             row.source,
-
           sourceUrl:
             row.source_url,
-
           picture:
             row.picture,
-
           pictureSource:
             row.picture_source,
-
           rank:
             row.trend_rank,
-
           score:
             Number(
               row.trend_score ??
                 0
             ),
-
           newsTitle:
             row.news_title,
-
           newsSummary:
             row.news_summary,
-
           newsSource:
             row.news_source,
-
           newsUrl:
             row.news_url,
-
           newsPublishedAt:
             row.news_published_at,
         })
@@ -2677,35 +2587,27 @@ export async function GET() {
 
     return NextResponse.json({
       success: true,
-
       source:
         trendsSource,
-
       country:
         "Indonesia",
-
       updatedAt:
         now,
-
       total:
         trends.length,
-
       fallback:
         false,
-
       database: {
         inserted,
         updated,
         snapshotsCreated,
         snapshotsSkipped,
       },
-
       fastestRising:
         fastestRising.slice(
           0,
           5
         ),
-
       trends,
     });
   } catch (error) {
