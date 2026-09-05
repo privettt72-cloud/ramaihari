@@ -9,12 +9,22 @@ type Trend = {
   category: string | null;
   traffic: string | null;
   traffic_value: number | null;
+
   source: string | null;
   source_url: string | null;
+
   picture: string | null;
   picture_source: string | null;
+
+  news_title: string | null;
+  news_summary: string | null;
+  news_source: string | null;
+  news_url: string | null;
+  news_published_at: string | null;
+
   trend_rank: number | null;
   trend_score: number | null;
+
   created_at: string;
   updated_at: string;
 };
@@ -158,7 +168,8 @@ export async function generateMetadata({
 
   if (!trend) {
     return {
-      title: "Trend Belum Ditemukan | RAMAIHARI",
+      title:
+        "Trend Belum Ditemukan | RAMAIHARI",
       description:
         "Trend tersebut belum tersedia di RAMAIHARI.",
     };
@@ -170,7 +181,8 @@ export async function generateMetadata({
   return {
     title: `${trend.title} — Trend ${category} Hari Ini | RAMAIHARI`,
     description:
-      `Lihat informasi trend ${trend.title}, RAMAI Score, traffic, posisi trending, dan riwayat pergerakannya di RAMAIHARI.`,
+      trend.news_summary ??
+      `Lihat informasi trend ${trend.title}, RAMAI Score, traffic, posisi trending, dan berita terkait di RAMAIHARI.`,
   };
 }
 
@@ -233,14 +245,6 @@ export default async function TrendDetailPage({
       ? snapshots[snapshots.length - 1]
       : null;
 
-  /*
-   * Cari snapshot sebelumnya yang
-   * benar-benar berbeda posisi.
-   *
-   * Ini menghindari masalah ketika
-   * beberapa snapshot berturut-turut
-   * memiliki rank yang sama.
-   */
   let previousSnapshot:
     | Snapshot
     | null = null;
@@ -277,6 +281,26 @@ export default async function TrendDetailPage({
       previousSnapshot.trend_rank -
       latestSnapshot.trend_rank;
   }
+
+  const newsTitle =
+    trend.news_title ??
+    trend.title;
+
+  const newsSource =
+    trend.news_source ??
+    trend.source ??
+    "Sumber berita";
+
+  const newsUrl =
+    trend.news_url ??
+    trend.source_url;
+
+  const hasNews =
+    Boolean(
+      trend.news_summary ||
+      newsTitle ||
+      newsUrl
+    );
 
   return (
     <main className="min-h-screen bg-zinc-50 text-zinc-900">
@@ -316,8 +340,6 @@ export default async function TrendDetailPage({
 
       <div className="mx-auto max-w-6xl px-5 py-8 md:py-12">
 
-        {/* BACK */}
-
         <Link
           href="/trending"
           className="inline-flex items-center gap-2 text-sm font-semibold text-zinc-500 hover:text-orange-500"
@@ -326,7 +348,7 @@ export default async function TrendDetailPage({
         </Link>
 
         {/* =========================
-            HERO DETAIL
+            HERO
         ========================= */}
 
         <section className="mt-6 overflow-hidden rounded-3xl border border-zinc-200 bg-white">
@@ -376,47 +398,51 @@ export default async function TrendDetailPage({
 
               </div>
 
-              {rankChange > 0 && (
-                <div className="rounded-2xl bg-green-50 px-5 py-4 text-center">
+              <div>
 
-                  <div className="text-2xl font-black text-green-600">
-                    ↑ {rankChange}
+                {rankChange > 0 && (
+                  <div className="rounded-2xl bg-green-50 px-5 py-4 text-center">
+
+                    <div className="text-2xl font-black text-green-600">
+                      ↑ {rankChange}
+                    </div>
+
+                    <div className="text-xs font-semibold text-green-700">
+                      naik peringkat
+                    </div>
+
                   </div>
+                )}
 
-                  <div className="text-xs font-semibold text-green-700">
-                    naik peringkat
+                {rankChange < 0 && (
+                  <div className="rounded-2xl bg-red-50 px-5 py-4 text-center">
+
+                    <div className="text-2xl font-black text-red-600">
+                      ↓ {Math.abs(rankChange)}
+                    </div>
+
+                    <div className="text-xs font-semibold text-red-700">
+                      turun peringkat
+                    </div>
+
                   </div>
+                )}
 
-                </div>
-              )}
+                {rankChange === 0 && (
+                  <div className="rounded-2xl bg-zinc-50 px-5 py-4 text-center">
 
-              {rankChange < 0 && (
-                <div className="rounded-2xl bg-red-50 px-5 py-4 text-center">
+                    <div className="text-2xl font-black text-zinc-600">
+                      —
+                    </div>
 
-                  <div className="text-2xl font-black text-red-600">
-                    ↓ {Math.abs(rankChange)}
+                    <div className="text-xs font-semibold text-zinc-500">
+                      posisi tetap
+                    </div>
+
                   </div>
+                )}
 
-                  <div className="text-xs font-semibold text-red-700">
-                    turun peringkat
-                  </div>
-
-                </div>
-              )}
-
-              {rankChange === 0 && (
-                <div className="rounded-2xl bg-zinc-50 px-5 py-4 text-center">
-
-                  <div className="text-2xl font-black text-zinc-600">
-                    —
-                  </div>
-
-                  <div className="text-xs font-semibold text-zinc-500">
-                    posisi tetap
-                  </div>
-
-                </div>
-              )}
+              </div>
 
             </div>
 
@@ -433,8 +459,7 @@ export default async function TrendDetailPage({
                 </div>
 
                 <div className="mt-2 text-2xl font-black">
-                  {trend.traffic ??
-                    "-"}
+                  {trend.traffic ?? "-"}
                 </div>
 
               </div>
@@ -482,40 +507,153 @@ export default async function TrendDetailPage({
         </section>
 
         {/* =========================
-            BERITA
+            BERITA TERKAIT
         ========================= */}
 
-        {trend.source_url && (
+        {hasNews && (
           <section className="mt-6 rounded-3xl border border-zinc-200 bg-white p-6 md:p-8">
 
             <div className="text-sm font-bold uppercase tracking-wider text-orange-500">
-              Sumber
+              📰 Berita terkait
             </div>
 
-            <h2 className="mt-2 text-2xl font-black">
-              Berita terkait trend
+            <h2 className="mt-2 text-3xl font-black tracking-tight">
+              {newsTitle}
             </h2>
 
-            <p className="mt-2 text-sm text-zinc-500">
-              Trend ini terhubung dengan
-              sumber berita yang ditampilkan
-              oleh Google Trends.
-            </p>
+            <div className="mt-4 flex flex-wrap items-center gap-2 text-sm text-zinc-500">
 
-            <a
-              href={trend.source_url}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="mt-5 inline-flex rounded-2xl bg-zinc-900 px-5 py-3 text-sm font-bold text-white hover:bg-zinc-700"
-            >
-              Buka sumber berita →
-            </a>
+              <span className="font-bold text-zinc-700">
+                {newsSource}
+              </span>
+
+              {trend.news_published_at && (
+                <>
+                  <span>·</span>
+
+                  <span>
+                    {formatDate(
+                      trend.news_published_at
+                    )}
+                  </span>
+                </>
+              )}
+
+            </div>
+
+            {trend.news_summary ? (
+              <div className="mt-7">
+
+                <div className="text-sm font-bold uppercase tracking-wider text-zinc-400">
+                  Ringkasan
+                </div>
+
+                <p className="mt-3 max-w-4xl text-lg leading-8 text-zinc-700">
+                  {trend.news_summary}
+                </p>
+
+              </div>
+            ) : (
+              <div className="mt-6 rounded-2xl bg-zinc-50 p-5">
+
+                <p className="text-sm leading-6 text-zinc-500">
+                  Berita ini menjadi salah satu
+                  artikel yang berkaitan dengan
+                  trend yang sedang ramai.
+                </p>
+
+              </div>
+            )}
+
+            {newsUrl && (
+              <a
+                href={newsUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="mt-7 inline-flex items-center rounded-2xl bg-zinc-900 px-6 py-3 font-bold text-white transition hover:bg-orange-500"
+              >
+                Baca artikel lengkap →
+              </a>
+            )}
+
+            <div className="mt-5 border-t border-zinc-100 pt-5 text-xs leading-5 text-zinc-400">
+              RAMAIHARI menampilkan informasi
+              ringkas dan mengarahkan pembaca ke
+              sumber artikel asli.
+            </div>
 
           </section>
         )}
 
         {/* =========================
-            RIWAYAT TREND
+            TENTANG TREND
+        ========================= */}
+
+        <section className="mt-6 rounded-3xl border border-zinc-200 bg-white p-6 md:p-8">
+
+          <div className="text-sm font-bold uppercase tracking-wider text-blue-500">
+            Tentang Trend
+          </div>
+
+          <h2 className="mt-2 text-2xl font-black">
+            Kenapa {trend.title} sedang ramai?
+          </h2>
+
+          <p className="mt-4 max-w-4xl text-base leading-7 text-zinc-600">
+            Topik <strong>{trend.title}</strong>{" "}
+            sedang mendapatkan perhatian tinggi
+            di pencarian Google Indonesia.
+            RAMAIHARI memantau posisi, traffic,
+            dan pergerakan trend tersebut untuk
+            menunjukkan seberapa ramai topik ini
+            dibandingkan trend lainnya.
+          </p>
+
+          <div className="mt-6 grid gap-4 md:grid-cols-3">
+
+            <div className="rounded-2xl bg-zinc-50 p-5">
+
+              <div className="text-xs font-bold uppercase tracking-wider text-zinc-400">
+                Traffic
+              </div>
+
+              <div className="mt-2 text-xl font-black">
+                {trend.traffic ?? "-"}
+              </div>
+
+            </div>
+
+            <div className="rounded-2xl bg-zinc-50 p-5">
+
+              <div className="text-xs font-bold uppercase tracking-wider text-zinc-400">
+                Kategori
+              </div>
+
+              <div className="mt-2 text-xl font-black">
+                {trend.category ??
+                  "Berita"}
+              </div>
+
+            </div>
+
+            <div className="rounded-2xl bg-zinc-50 p-5">
+
+              <div className="text-xs font-bold uppercase tracking-wider text-zinc-400">
+                RAMAI Score
+              </div>
+
+              <div className="mt-2 text-xl font-black text-orange-500">
+                {score}
+              </div>
+
+            </div>
+
+          </div>
+
+        </section>
+
+        {/* =========================
+            RIWAYAT
         ========================= */}
 
         <section className="mt-6 rounded-3xl border border-zinc-200 bg-white p-6 md:p-8">
@@ -530,7 +668,7 @@ export default async function TrendDetailPage({
               Riwayat Trend
             </h2>
 
-            <p className="mt-2 text-sm text-zinc-500">
+            <p className="mt-2 text-zinc-500">
               Perubahan posisi trend yang
               tercatat oleh RAMAIHARI.
             </p>
