@@ -1098,6 +1098,12 @@ async function resolveGoogleNewsUrl(
         articleHtml
       );
 
+      console.log(
+  "GOOGLE NEWS DATA P:",
+  Boolean(dataP),
+  dataP?.slice(0, 500)
+);
+
     if (!dataP) {
       /**
        * Sebagai fallback, cek canonical.
