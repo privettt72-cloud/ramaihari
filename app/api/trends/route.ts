@@ -91,7 +91,10 @@ function stripHtml(value: unknown): string {
 }
 
 function parseTrafficValue(value: unknown): number {
-  if (typeof value === "number" && Number.isFinite(value)) {
+  if (
+    typeof value === "number" &&
+    Number.isFinite(value)
+  ) {
     return value;
   }
 
@@ -107,10 +110,14 @@ function parseTrafficValue(value: unknown): number {
     return 0;
   }
 
-  const numberText = match[0].replace(/[^\d]/g, "");
+  const numberText =
+    match[0].replace(/[^\d]/g, "");
+
   const parsed = Number(numberText);
 
-  return Number.isFinite(parsed) ? parsed : 0;
+  return Number.isFinite(parsed)
+    ? parsed
+    : 0;
 }
 
 function trafficScore(value: number): number {
@@ -137,7 +144,9 @@ function momentumScore(
   }
 
   const growth =
-    ((currentValue - previousValue) / previousValue) * 100;
+    ((currentValue - previousValue) /
+      previousValue) *
+    100;
 
   if (growth >= 500) return 100;
   if (growth >= 300) return 95;
@@ -163,12 +172,17 @@ function rankingScore(rank: number): number {
   return 50;
 }
 
-function recencyScore(dateValue: unknown): number {
+function recencyScore(
+  dateValue: unknown
+): number {
   if (!dateValue) {
     return 0;
   }
 
-  const timestamp = new Date(String(dateValue)).getTime();
+  const timestamp =
+    new Date(
+      String(dateValue)
+    ).getTime();
 
   if (!Number.isFinite(timestamp)) {
     return 0;
@@ -215,7 +229,9 @@ function calculateTrendScore(
     ranking * 0.2 +
     recency * 0.1;
 
-  return Math.round(score * 100) / 100;
+  return (
+    Math.round(score * 100) / 100
+  );
 }
 
 function getCategory(
@@ -252,9 +268,13 @@ function getCategory(
   return "Berita";
 }
 
-async function getGoogleTrends(): Promise<TrendItem[]> {
+async function getGoogleTrends(): Promise<
+  TrendItem[]
+> {
   try {
-    console.log("Fetching Google Trends...");
+    console.log(
+      "Fetching Google Trends..."
+    );
 
     const result =
       await fetchTrendingNow({
@@ -517,13 +537,13 @@ function extractMetaContent(
 
   const regex =
     new RegExp(
-      `<meta\\b(?=[^>]*\\b${attribute}=["']${escapedValue}["'])[^>]*\\bcontent=["']([^"']*)["'][^>]*>`,
+      `<meta\\b(?=[^>]*\\b${attribute}=["']${escapedValue}["'])[^>]*\\bcontent=["']([^"]*)["'][^>]*>`,
       "i"
     );
 
   const reverseRegex =
     new RegExp(
-      `<meta\\b(?=[^>]*\\bcontent=["']([^"']*)["'])[^>]*\\b${attribute}=["']${escapedValue}["'][^>]*>`,
+      `<meta\\b(?=[^>]*\\bcontent=["']([^"]*)["'])[^>]*\\b${attribute}=["']${escapedValue}["'][^>]*>`,
       "i"
     );
 
@@ -568,16 +588,14 @@ function extractCanonicalUrl(
   html: string
 ): string | null {
   const regex =
-    /<link\b[^>]*\brel=["'][^"']*canonical[^"']*["'][^>]*\bhref=["']([^"']+)["'][^>]*>/i;
+    /<link\b[^>]*\brel=["'][^"']*\bcanonical\b[^"']*["'][^>]*\bhref=["']([^"']+)["'][^>]*>/i;
 
   const reverseRegex =
-    /<link\b[^>]*\bhref=["']([^"']+)["'][^>]*\brel=["'][^"']*canonical[^"']*["'][^>]*>/i;
+    /<link\b[^>]*\bhref=["']([^"']+)["'][^>]*\brel=["'][^"']*\bcanonical\b[^"']*["'][^>]*>/i;
 
   const match =
     html.match(regex) ??
-    html.match(
-      reverseRegex
-    );
+    html.match(reverseRegex);
 
   if (!match?.[1]) {
     return null;
@@ -635,9 +653,11 @@ function extractGoogleNewsArticleId(
       return null;
     }
 
-    return parts[
-      articleIndex + 1
-    ];
+    return (
+      parts[
+        articleIndex + 1
+      ]
+    );
   } catch {
     return null;
   }
@@ -646,35 +666,9 @@ function extractGoogleNewsArticleId(
 function extractGoogleNewsToken(
   googleNewsUrl: string
 ): string | null {
-  try {
-    const parsed =
-      new URL(
-        googleNewsUrl
-      );
-
-    const parts =
-      parsed.pathname
-        .split("/")
-        .filter(Boolean);
-
-    const articleIndex =
-      parts.lastIndexOf(
-        "articles"
-      );
-
-    if (
-      articleIndex === -1 ||
-      !parts[articleIndex + 1]
-    ) {
-      return null;
-    }
-
-    return parts[
-      articleIndex + 1
-    ];
-  } catch {
-    return null;
-  }
+  return extractGoogleNewsArticleId(
+    googleNewsUrl
+  );
 }
 
 function tryDecodeLegacyGoogleNewsUrl(
@@ -692,14 +686,8 @@ function tryDecodeLegacyGoogleNewsUrl(
 
     const normalized =
       token
-        .replace(
-          /-/g,
-          "+"
-        )
-        .replace(
-          /_/g,
-          "/"
-        );
+        .replace(/-/g, "+")
+        .replace(/_/g, "/");
 
     const padded =
       normalized +
@@ -723,17 +711,13 @@ function tryDecodeLegacyGoogleNewsUrl(
         /https?:\/\//i
       );
 
-    if (
-      httpIndex === -1
-    ) {
+    if (httpIndex === -1) {
       return null;
     }
 
     const possibleUrl =
       decoded
-        .slice(
-          httpIndex
-        )
+        .slice(httpIndex)
         .split(
           "\u0000"
         )[0]
@@ -761,13 +745,22 @@ function tryDecodeLegacyGoogleNewsUrl(
   }
 }
 
+/**
+ * Resolver pertama:
+ * buka URL Google News dan lihat apakah
+ * Google melakukan redirect langsung ke publisher.
+ */
 async function resolveNewsRedirect(
   newsUrl: string
 ): Promise<string | null> {
   try {
     if (
-      !isValidHttpUrl(newsUrl) ||
-      !isGoogleNewsUrl(newsUrl)
+      !isValidHttpUrl(
+        newsUrl
+      ) ||
+      !isGoogleNewsUrl(
+        newsUrl
+      )
     ) {
       return null;
     }
@@ -779,13 +772,11 @@ async function resolveNewsRedirect(
           headers: {
             Accept:
               "text/html,application/xhtml+xml",
-
             "User-Agent":
               "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/131 Safari/537.36",
           },
 
           cache: "no-store",
-
           redirect: "follow",
 
           signal:
@@ -820,10 +811,32 @@ async function resolveNewsRedirect(
   }
 }
 
+/**
+ * Resolver kedua:
+ * gunakan RPC internal Google News Fbv4je.
+ *
+ * Ini diperlukan karena URL:
+ * news.google.com/rss/articles/...
+ *
+ * sering tidak melakukan redirect biasa
+ * ke URL publisher.
+ */
 async function resolveGoogleNewsUrl(
   googleNewsUrl: string
 ): Promise<string | null> {
   try {
+    if (
+      !isGoogleNewsUrl(
+        googleNewsUrl
+      )
+    ) {
+      return isValidHttpUrl(
+        googleNewsUrl
+      )
+        ? googleNewsUrl
+        : null;
+    }
+
     console.log(
       "=== GOOGLE NEWS RESOLVER START ==="
     );
@@ -833,20 +846,27 @@ async function resolveGoogleNewsUrl(
       googleNewsUrl
     );
 
-    if (
-      !isGoogleNewsUrl(
+    /*
+     * Resolver legacy.
+     * Dipertahankan sebagai fallback tambahan.
+     */
+    const legacyUrl =
+      tryDecodeLegacyGoogleNewsUrl(
         googleNewsUrl
+      );
+
+    if (
+      legacyUrl &&
+      !isGoogleNewsUrl(
+        legacyUrl
       )
     ) {
       console.log(
-        "Input is not Google News URL"
+        "Legacy resolver success:",
+        legacyUrl
       );
 
-      return isValidHttpUrl(
-        googleNewsUrl
-      )
-        ? googleNewsUrl
-        : null;
+      return legacyUrl;
     }
 
     const articleId =
@@ -867,6 +887,9 @@ async function resolveGoogleNewsUrl(
       return null;
     }
 
+    /*
+     * Payload RPC Google News.
+     */
     const rpcPayload = [
       "garturlreq",
       [
@@ -933,6 +956,10 @@ async function resolveGoogleNewsUrl(
         )
       )}`;
 
+    /*
+     * Endpoint HARUS berupa URL biasa,
+     * bukan markdown link.
+     */
     const endpoint =
       "https://news.google.com/_/DotsSplashUi/data/batchexecute?rpcids=Fbv4je";
 
@@ -999,7 +1026,7 @@ async function resolveGoogleNewsUrl(
         await response.text();
 
       console.error(
-        "batchexecute HTTP error body:",
+        "Google News batchexecute HTTP error body:",
         errorText.slice(
           0,
           1000
@@ -1017,38 +1044,42 @@ async function resolveGoogleNewsUrl(
       responseText.length
     );
 
-    console.log(
-      "batchexecute response preview:",
-      responseText.slice(
-        0,
-        2000
-      )
-    );
-
     if (!responseText) {
       console.error(
-        "batchexecute returned empty response"
+        "Google News batchexecute returned empty response"
       );
 
       return null;
     }
 
+    /*
+     * Google mengembalikan response
+     * dengan beberapa jenis escaping.
+     */
     const decodedResponse =
       responseText
         .replace(
-          /\\u003d/g,
+          /\\u003d/gi,
           "="
         )
         .replace(
-          /\\u0026/g,
+          /\\u0026/gi,
           "&"
         )
         .replace(
-          /\\u003f/g,
+          /\\u003f/gi,
           "?"
         )
         .replace(
           /\\u002F/gi,
+          "/"
+        )
+        .replace(
+          /\\u002F/gi,
+          "/"
+        )
+        .replace(
+          /\\\//g,
           "/"
         )
         .replace(
@@ -1057,30 +1088,41 @@ async function resolveGoogleNewsUrl(
         );
 
     console.log(
-      "Decoded response preview:",
+      "Decoded Google response preview:",
       decodedResponse.slice(
         0,
         2000
       )
     );
 
-    const patterns = [
-      /garturlres[^"]*"((?:https?:\/\/)[^"]+)/i,
+    /*
+     * =================================================
+     * PRIORITAS 1
+     * Cari pasangan:
+     *
+     * "garturlres","https://publisher.com/..."
+     *
+     * Ini adalah response utama RPC Google.
+     * =================================================
+     */
+    const garturlPatterns = [
+      /garturlres["']?\s*,\s*["'](https?:\/\/[^"'\\]+)["']/i,
 
-      /garturlres.{0,500}?(https?:\/\/[^\s"\\]+)/i,
+      /\["garturlres"\s*,\s*"(https?:\/\/[^"]+)"/i,
 
-      /"(https?:\/\/[^"]+)"[^]*?garturlres/i,
+      /garturlres.{0,2000}?(https?:\/\/[^\s"'\\]+)/i,
 
-      /(https?:\/\/[^"\\\s]+)[^]*?garturlres/i,
+      /garturlres.{0,2000}?(https?:\\\/\\\/[^\s"'\\]+)/i,
     ];
 
     for (
       let index = 0;
-      index < patterns.length;
+      index <
+        garturlPatterns.length;
       index++
     ) {
       const pattern =
-        patterns[index];
+        garturlPatterns[index];
 
       const match =
         decodedResponse.match(
@@ -1088,31 +1130,35 @@ async function resolveGoogleNewsUrl(
         );
 
       console.log(
-        `Resolver pattern ${index + 1} match:`,
-        Boolean(
-          match?.[1]
-        )
+        `Google News garturlres pattern ${index + 1}:`,
+        Boolean(match?.[1])
       );
 
-      if (
-        !match?.[1]
-      ) {
+      if (!match?.[1]) {
         continue;
       }
 
       let candidate =
         match[1]
           .replace(
-            /\\u0026/g,
+            /\\"/g,
+            '"'
+          )
+          .replace(
+            /\\u0026/gi,
             "&"
           )
           .replace(
-            /\\u003d/g,
+            /\\u003d/gi,
             "="
           )
           .replace(
-            /\\u003f/g,
+            /\\u003f/gi,
             "?"
+          )
+          .replace(
+            /\\u002F/gi,
+            "/"
           )
           .replace(
             /\\\//g,
@@ -1120,14 +1166,27 @@ async function resolveGoogleNewsUrl(
           )
           .trim();
 
+      /*
+       * Kadang URL masih percent-encoded.
+       */
       try {
         candidate =
           decodeURIComponent(
             candidate
           );
       } catch {
-        // Biarkan URL apa adanya.
+        // URL dibiarkan apa adanya.
       }
+
+      /*
+       * Buang karakter JSON yang mungkin
+       * ikut tertangkap.
+       */
+      candidate =
+        candidate.replace(
+          /["'\\\],}]+$/,
+          ""
+        );
 
       console.log(
         "Candidate publisher URL:",
@@ -1150,26 +1209,98 @@ async function resolveGoogleNewsUrl(
       }
     }
 
+    /*
+     * =================================================
+     * PRIORITAS 2
+     * Cari semua URL HTTP/HTTPS di response.
+     *
+     * Google kadang mengubah struktur response
+     * sehingga garturlres tidak cocok dengan regex
+     * pertama.
+     * =================================================
+     */
     const allUrls =
       decodedResponse.match(
-        /https?:\/\/[^\s"'\\]+/gi
+        /https?:\/\/[^\s"'\\\]\}]+/gi
       ) ?? [];
 
     console.log(
-      "HTTP URLs found in Google response:",
+      "HTTP URLs found:",
       allUrls
         .slice(
           0,
-          10
+          20
         )
         .map(
           (url) =>
             url.slice(
               0,
-              300
+              500
             )
         )
     );
+
+    /*
+     * Cari URL publisher yang bukan
+     * Google News.
+     */
+    for (
+      const candidate of
+        allUrls
+    ) {
+      let cleaned =
+        candidate
+          .replace(
+            /\\u0026/gi,
+            "&"
+          )
+          .replace(
+            /\\u003d/gi,
+            "="
+          )
+          .replace(
+            /\\u003f/gi,
+            "?"
+          )
+          .replace(
+            /\\u002F/gi,
+            "/"
+          )
+          .replace(
+            /\\\//g,
+            "/"
+          )
+          .replace(
+            /["'\\\],}]+$/,
+            ""
+          )
+          .trim();
+
+      try {
+        cleaned =
+          decodeURIComponent(
+            cleaned
+          );
+      } catch {
+        // URL dibiarkan apa adanya.
+      }
+
+      if (
+        isValidHttpUrl(
+          cleaned
+        ) &&
+        !isGoogleNewsUrl(
+          cleaned
+        )
+      ) {
+        console.log(
+          "Fallback publisher URL found:",
+          cleaned
+        );
+
+        return cleaned;
+      }
+    }
 
     console.error(
       "=== GOOGLE NEWS RESOLVER FAILED ==="
@@ -1225,11 +1356,9 @@ async function getArticleMetadata(
               "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/131 Safari/537.36",
           },
 
-          cache:
-            "no-store",
+          cache: "no-store",
 
-          redirect:
-            "follow",
+          redirect: "follow",
 
           signal:
             AbortSignal.timeout(
@@ -1470,7 +1599,7 @@ async function getRelatedNews(
     ) {
       /*
        * Resolver 1:
-       * Redirect biasa.
+       * redirect biasa.
        */
       publisherUrl =
         await resolveNewsRedirect(
@@ -1479,7 +1608,7 @@ async function getRelatedNews(
 
       /*
        * Resolver 2:
-       * Decoder Google News.
+       * Google News batchexecute.
        */
       if (!publisherUrl) {
         publisherUrl =
@@ -1535,19 +1664,13 @@ async function getRelatedNews(
       "News result:",
       {
         keyword,
-
         rssHeadline,
-
         title:
           finalTitle,
-
         source,
-
         googleNewsLink,
-
         publisherUrl:
           finalArticleUrl,
-
         hasSummary:
           Boolean(
             articleSummary
@@ -1595,7 +1718,9 @@ async function calculateTrafficGrowth(
 ): Promise<number> {
   const { data } =
     await supabaseServer
-      .from("trend_snapshots")
+      .from(
+        "trend_snapshots"
+      )
       .select(
         "traffic_value, recorded_at"
       )
@@ -1648,7 +1773,9 @@ async function calculateRankChange(
 ): Promise<number> {
   const { data } =
     await supabaseServer
-      .from("trend_snapshots")
+      .from(
+        "trend_snapshots"
+      )
       .select(
         "trend_rank, recorded_at"
       )
@@ -1901,7 +2028,8 @@ export async function GET() {
           snapshotsSkipped: 0,
         },
 
-        fastestRising: [],
+        fastestRising:
+          [],
 
         trends,
       });
@@ -1945,7 +2073,6 @@ export async function GET() {
 
             return {
               keyword,
-
               title,
 
               traffic:
@@ -2154,10 +2281,6 @@ export async function GET() {
           existing?.news_title ??
           null,
 
-        /*
-         * Jangan hapus summary lama jika
-         * Google News tidak mengembalikan summary.
-         */
         news_summary:
           news.summary ??
           existing?.news_summary ??
@@ -2168,10 +2291,6 @@ export async function GET() {
           existing?.news_source ??
           null,
 
-        /*
-         * Jangan hapus URL publisher lama jika
-         * resolver Google News gagal.
-         */
         news_url:
           news.url ??
           existing?.news_url ??
@@ -2352,7 +2471,8 @@ export async function GET() {
       }
 
       const {
-        data: latestSnapshot,
+        data:
+          latestSnapshot,
         error:
           latestSnapshotError,
       } =
@@ -2370,7 +2490,8 @@ export async function GET() {
           .order(
             "recorded_at",
             {
-              ascending: false,
+              ascending:
+                false,
             }
           )
           .limit(1);
@@ -2573,7 +2694,6 @@ export async function GET() {
     return NextResponse.json(
       {
         success: false,
-
         error:
           errorObject,
       },
