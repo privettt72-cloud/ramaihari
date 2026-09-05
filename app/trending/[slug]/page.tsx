@@ -172,17 +172,77 @@ export async function generateMetadata({
         "Trend Belum Ditemukan | RAMAIHARI",
       description:
         "Trend tersebut belum tersedia di RAMAIHARI.",
+      robots: {
+        index: false,
+        follow: false,
+      },
     };
   }
 
   const category =
     trend.category ?? "Berita";
 
+  const title =
+    trend.news_title
+      ? `${trend.news_title} | RAMAIHARI`
+      : `${trend.title} — Trend ${category} Hari Ini | RAMAIHARI`;
+
+  const description =
+    trend.news_summary ??
+    `Lihat informasi trend ${trend.title}, RAMAI Score, traffic, posisi trending, dan berita terkait di RAMAIHARI.`;
+
+  const canonicalUrl =
+    `https://ramaihari.com/trending/${encodeURIComponent(
+      trend.keyword
+    )}`;
+
   return {
-    title: `${trend.title} — Trend ${category} Hari Ini | RAMAIHARI`,
-    description:
-      trend.news_summary ??
-      `Lihat informasi trend ${trend.title}, RAMAI Score, traffic, posisi trending, dan berita terkait di RAMAIHARI.`,
+    title,
+    description,
+
+    alternates: {
+      canonical: canonicalUrl,
+    },
+
+    robots: {
+      index: true,
+      follow: true,
+    },
+
+    openGraph: {
+      title,
+      description,
+      url: canonicalUrl,
+      siteName: "RAMAIHARI",
+      locale: "id_ID",
+      type: "article",
+
+      publishedTime:
+        trend.news_published_at ??
+        undefined,
+
+      images: trend.picture
+        ? [
+            {
+              url: trend.picture,
+              alt: trend.title,
+            },
+          ]
+        : undefined,
+    },
+
+    twitter: {
+      card: trend.picture
+        ? "summary_large_image"
+        : "summary",
+
+      title,
+      description,
+
+      images: trend.picture
+        ? [trend.picture]
+        : undefined,
+    },
   };
 }
 
