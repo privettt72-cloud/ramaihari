@@ -1224,8 +1224,8 @@ async function resolveGoogleNewsUrl(
      * PENTING:
      * URL harus URL asli, bukan format Markdown.
      */
-    const endpoint =
-       "https://news.google.com/_/DotsSplashUi/data/batchexecute?rpcids=Fbv4je";
+    const endpoint =   "https://news.google.com/_/DotsSplashUi/data/batchexecute?rpcids=Fbv4je";
+      
 
     /**
      * STEP 5
@@ -1246,8 +1246,8 @@ async function resolveGoogleNewsUrl(
                 "*/*",
               Referer:
                 googleNewsUrl,
-              Origin:
-                "https://news.google.com",
+              Origin: "https://news.google.com",
+                
               "User-Agent":
                 "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
             },
