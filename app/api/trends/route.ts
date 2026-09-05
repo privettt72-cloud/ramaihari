@@ -1298,6 +1298,12 @@ async function resolveGoogleNewsUrl(
 
       return null;
     }
+    
+console.log(
+  "GOOGLE NEWS RPC STATUS:",
+  rpcResponse.status,
+  rpcResponse.ok
+);
 
     const responseText =
       await rpcResponse.text();
