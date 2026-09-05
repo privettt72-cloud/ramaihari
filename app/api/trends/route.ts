@@ -1263,12 +1263,11 @@ async function resolveGoogleNewsUrl(
     }
 
     const responseText =
-      await rpcResponse.text();
+  await rpcResponse.text();
 
-    if (!responseText) {
-      return null;
-    }
-
+if (!responseText) {
+  return null;
+}
     /**
      * STEP 6
      * Cari garturlres.
