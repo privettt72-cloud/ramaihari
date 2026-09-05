@@ -640,6 +640,69 @@ function extractGoogleNewsArticleId(
   }
 }
 
+/* =====================================================
+   TAMBAHAN:
+   Coba mengikuti redirect Google News secara langsung.
+   ===================================================== */
+
+async function resolveNewsRedirect(
+  newsUrl: string
+): Promise<string | null> {
+  try {
+    if (
+      !isValidHttpUrl(newsUrl) ||
+      !isGoogleNewsUrl(newsUrl)
+    ) {
+      return null;
+    }
+
+    const response =
+      await fetch(
+        newsUrl,
+        {
+          headers: {
+            Accept:
+              "text/html,application/xhtml+xml",
+
+            "User-Agent":
+              "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/131 Safari/537.36",
+          },
+
+          cache: "no-store",
+          redirect: "follow",
+
+          signal:
+            AbortSignal.timeout(
+              8000
+            ),
+        }
+      );
+
+    const finalUrl =
+      response.url;
+
+    if (
+      isValidHttpUrl(
+        finalUrl
+      ) &&
+      !isGoogleNewsUrl(
+        finalUrl
+      )
+    ) {
+      return finalUrl;
+    }
+
+    return null;
+  } catch (error) {
+    console.error(
+      "Google News redirect resolver error:",
+      error
+    );
+
+    return null;
+  }
+}
+
 async function resolveGoogleNewsUrl(
   googleNewsUrl: string
 ): Promise<string | null> {
@@ -675,11 +738,14 @@ async function resolveGoogleNewsUrl(
           headers: {
             Accept:
               "text/html,application/xhtml+xml",
+
             "User-Agent":
               "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/131 Safari/537.36",
           },
+
           cache: "no-store",
           redirect: "follow",
+
           signal:
             AbortSignal.timeout(
               8000
@@ -831,16 +897,22 @@ async function resolveGoogleNewsUrl(
         "https://news.google.com/_/DotsSplashUi/data/batchexecute?rpcids=Fbv4je",
         {
           method: "POST",
+
           headers: {
             "Content-Type":
               "application/x-www-form-urlencoded;charset=UTF-8",
+
             Referer:
               "https://news.google.com/",
+
             "User-Agent":
               "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/131 Safari/537.36",
           },
+
           body,
+
           cache: "no-store",
+
           signal:
             AbortSignal.timeout(
               8000
@@ -966,11 +1038,14 @@ async function getArticleMetadata(
           headers: {
             Accept:
               "text/html,application/xhtml+xml",
+
             "User-Agent":
               "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/131 Safari/537.36",
           },
+
           cache: "no-store",
           redirect: "follow",
+
           signal:
             AbortSignal.timeout(
               8000
@@ -1086,10 +1161,13 @@ async function getRelatedNews(
           headers: {
             Accept:
               "application/rss+xml, application/xml, text/xml",
+
             "User-Agent":
               "RAMAIHARI/1.0",
           },
+
           cache: "no-store",
+
           signal:
             AbortSignal.timeout(
               8000
@@ -1171,11 +1249,14 @@ async function getRelatedNews(
       );
 
     let publishedAt:
-      string | null = null;
+      | string
+      | null = null;
 
     if (pubDate) {
       const parsedDate =
-        new Date(pubDate);
+        new Date(
+          pubDate
+        );
 
       if (
         Number.isFinite(
@@ -1188,7 +1269,8 @@ async function getRelatedNews(
     }
 
     let publisherUrl:
-      string | null = null;
+      | string
+      | null = null;
 
     if (
       googleNewsLink &&
@@ -1196,10 +1278,26 @@ async function getRelatedNews(
         googleNewsLink
       )
     ) {
+      /*
+       * CARA 1:
+       * Coba redirect langsung.
+       */
       publisherUrl =
-        await resolveGoogleNewsUrl(
+        await resolveNewsRedirect(
           googleNewsLink
         );
+
+      /*
+       * CARA 2:
+       * Kalau gagal, gunakan resolver
+       * batchexecute yang sudah ada.
+       */
+      if (!publisherUrl) {
+        publisherUrl =
+          await resolveGoogleNewsUrl(
+            googleNewsLink
+          );
+      }
     } else if (
       googleNewsLink &&
       isValidHttpUrl(
@@ -1211,13 +1309,16 @@ async function getRelatedNews(
     }
 
     let articleTitle:
-      string | null = null;
+      | string
+      | null = null;
 
     let articleSummary:
-      string | null = null;
+      | string
+      | null = null;
 
     let finalArticleUrl:
-      string | null =
+      | string
+      | null =
         publisherUrl;
 
     if (publisherUrl) {
@@ -1828,16 +1929,28 @@ export async function GET() {
           existing?.news_title ??
           null,
 
+        /*
+         * Pertahankan summary lama jika fetch
+         * berita terbaru gagal mengambil summary.
+         */
         news_summary:
-          news.summary,
+          news.summary ??
+          existing?.news_summary ??
+          null,
 
         news_source:
           news.source ??
           existing?.news_source ??
           null,
 
+        /*
+         * Pertahankan URL publisher lama jika
+         * resolver berita terbaru gagal.
+         */
         news_url:
-          news.url,
+          news.url ??
+          existing?.news_url ??
+          null,
 
         news_published_at:
           news.publishedAt ??
