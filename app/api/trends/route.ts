@@ -596,6 +596,10 @@ function extractCanonicalUrl(
     : null;
 }
 
+/* =====================================================
+   GOOGLE NEWS URL RESOLVER
+   ===================================================== */
+
 function extractGoogleNewsArticleId(
   googleNewsUrl: string
 ): string | null {
@@ -621,7 +625,7 @@ function extractGoogleNewsArticleId(
         .filter(Boolean);
 
     const articleIndex =
-      parts.indexOf(
+      parts.lastIndexOf(
         "articles"
       );
 
@@ -640,10 +644,121 @@ function extractGoogleNewsArticleId(
   }
 }
 
-/* =====================================================
-   TAMBAHAN:
-   Coba mengikuti redirect Google News secara langsung.
-   ===================================================== */
+function extractGoogleNewsToken(
+  googleNewsUrl: string
+): string | null {
+  try {
+    const parsed =
+      new URL(
+        googleNewsUrl
+      );
+
+    const parts =
+      parsed.pathname
+        .split("/")
+        .filter(Boolean);
+
+    const articleIndex =
+      parts.lastIndexOf(
+        "articles"
+      );
+
+    if (
+      articleIndex === -1 ||
+      !parts[articleIndex + 1]
+    ) {
+      return null;
+    }
+
+    return parts[
+      articleIndex + 1
+    ];
+  } catch {
+    return null;
+  }
+}
+
+function tryDecodeLegacyGoogleNewsUrl(
+  googleNewsUrl: string
+): string | null {
+  try {
+    const token =
+      extractGoogleNewsToken(
+        googleNewsUrl
+      );
+
+    if (!token) {
+      return null;
+    }
+
+    const normalized =
+      token.replace(
+        /-/g,
+        "+"
+      ).replace(
+        /_/g,
+        "/"
+      );
+
+    const padded =
+      normalized +
+      "=".repeat(
+        (4 -
+          (normalized.length %
+            4)) %
+          4
+      );
+
+    const decoded =
+      Buffer.from(
+        padded,
+        "base64"
+      ).toString(
+        "latin1"
+      );
+
+    const httpIndex =
+      decoded.search(
+        /https?:\/\//i
+      );
+
+    if (
+      httpIndex === -1
+    ) {
+      return null;
+    }
+
+    const possibleUrl =
+      decoded
+        .slice(
+          httpIndex
+        )
+        .split(
+          "\u0000"
+        )[0]
+        .trim();
+
+    if (
+      isValidHttpUrl(
+        possibleUrl
+      ) &&
+      !isGoogleNewsUrl(
+        possibleUrl
+      )
+    ) {
+      return possibleUrl;
+    }
+
+    return null;
+  } catch (error) {
+    console.error(
+      "Legacy Google News decode error:",
+      error
+    );
+
+    return null;
+  }
+}
 
 async function resolveNewsRedirect(
   newsUrl: string
@@ -669,6 +784,7 @@ async function resolveNewsRedirect(
           },
 
           cache: "no-store",
+
           redirect: "follow",
 
           signal:
@@ -719,115 +835,49 @@ async function resolveGoogleNewsUrl(
         : null;
     }
 
+    /*
+     * 1. Coba format lama terlebih dahulu.
+     */
+    const legacyUrl =
+      tryDecodeLegacyGoogleNewsUrl(
+        googleNewsUrl
+      );
+
+    if (
+      legacyUrl &&
+      !isGoogleNewsUrl(
+        legacyUrl
+      )
+    ) {
+      return legacyUrl;
+    }
+
+    /*
+     * 2. Ambil token article dari URL.
+     */
     const articleId =
       extractGoogleNewsArticleId(
         googleNewsUrl
       );
 
     if (!articleId) {
-      return null;
-    }
-
-    const articlePageUrl =
-      `https://news.google.com/articles/${articleId}`;
-
-    const articleResponse =
-      await fetch(
-        articlePageUrl,
-        {
-          headers: {
-            Accept:
-              "text/html,application/xhtml+xml",
-
-            "User-Agent":
-              "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/131 Safari/537.36",
-          },
-
-          cache: "no-store",
-          redirect: "follow",
-
-          signal:
-            AbortSignal.timeout(
-              8000
-            ),
-        }
-      );
-
-    if (
-      !articleResponse.ok
-    ) {
       console.error(
-        "Google News article page HTTP error:",
-        articleResponse.status
+        "Google News article ID not found:",
+        googleNewsUrl
       );
 
       return null;
     }
 
-    const html =
-      await articleResponse.text();
-
-    if (!html) {
-      return null;
-    }
-
-    const dataMatch =
-      html.match(
-        /<c-wiz\b[^>]*>[\s\S]*?<div\b[^>]*\bdata-n-a-id=["']([^"']+)["'][^>]*\bdata-n-a-sg=["']([^"']+)["'][^>]*\bdata-n-a-ts=["']([^"']+)["'][^>]*>/i
-      );
-
-    let articleIdFromPage =
-      articleId;
-
-    let signature:
-      | string
-      | null = null;
-
-    let timestamp:
-      | string
-      | null = null;
-
-    if (dataMatch) {
-      articleIdFromPage =
-        dataMatch[1];
-
-      signature =
-        dataMatch[2];
-
-      timestamp =
-        dataMatch[3];
-    } else {
-      const reverseDataMatch =
-        html.match(
-          /<div\b[^>]*\bdata-n-a-id=["']([^"']+)["'][^>]*\bdata-n-a-ts=["']([^"']+)["'][^>]*\bdata-n-a-sg=["']([^"']+)["'][^>]*>/i
-        );
-
-      if (
-        reverseDataMatch
-      ) {
-        articleIdFromPage =
-          reverseDataMatch[1];
-
-        timestamp =
-          reverseDataMatch[2];
-
-        signature =
-          reverseDataMatch[3];
-      }
-    }
-
-    if (
-      !signature ||
-      !timestamp
-    ) {
-      console.error(
-        "Google News resolver parameters not found"
-      );
-
-      return null;
-    }
-
-    const requestPayload =
+    /*
+     * 3. Google News sekarang memakai token CBMi...
+     *    yang perlu dikirim ke batchexecute.
+     *
+     *    Kita tidak bergantung pada data-n-a-sg
+     *    dari halaman HTML karena struktur halaman
+     *    Google News sering berubah.
+     */
+    const batchRequest =
       [
         [
           [
@@ -873,11 +923,9 @@ async function resolveGoogleNewsUrl(
                 null,
                 0,
               ],
-              articleIdFromPage,
-              Number(
-                timestamp
-              ),
-              signature,
+              articleId,
+              0,
+              "",
             ]),
             null,
             "generic",
@@ -885,14 +933,14 @@ async function resolveGoogleNewsUrl(
         ],
       ];
 
-    const body =
+    const requestBody =
       `f.req=${encodeURIComponent(
         JSON.stringify(
-          requestPayload
+          batchRequest
         )
       )}`;
 
-    const resolverResponse =
+    const response =
       await fetch(
         "https://news.google.com/_/DotsSplashUi/data/batchexecute?rpcids=Fbv4je",
         {
@@ -902,102 +950,110 @@ async function resolveGoogleNewsUrl(
             "Content-Type":
               "application/x-www-form-urlencoded;charset=UTF-8",
 
+            Accept:
+              "*/*",
+
             Referer:
               "https://news.google.com/",
+
+            Origin:
+              "https://news.google.com",
 
             "User-Agent":
               "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/131 Safari/537.36",
           },
 
-          body,
+          body:
+            requestBody,
 
           cache: "no-store",
 
           signal:
             AbortSignal.timeout(
-              8000
+              10000
             ),
         }
       );
 
     if (
-      !resolverResponse.ok
+      !response.ok
     ) {
       console.error(
         "Google News batchexecute HTTP error:",
-        resolverResponse.status
+        response.status
       );
 
       return null;
     }
 
-    const resolverText =
-      await resolverResponse.text();
+    const responseText =
+      await response.text();
 
-    if (!resolverText) {
+    if (!responseText) {
       return null;
     }
 
-    const marker =
-      '[\\"garturlres\\",\\"';
+    /*
+     * Google mengembalikan:
+     * [\"garturlres\",\"https://publisher...\",...]
+     *
+     * Cari beberapa kemungkinan bentuk
+     * escape agar lebih tahan terhadap perubahan
+     * kecil pada response Google.
+     */
 
-    const markerIndex =
-      resolverText.indexOf(
-        marker
-      );
+    const patterns = [
+      /\[\\"garturlres\\",\\"(https?:\/\/[^"\\]+?)(?:\\",|\\"])/i,
 
-    if (
-      markerIndex === -1
+      /\["garturlres","(https?:\/\/[^"]+?)"(?:,|\])/i,
+
+      /garturlres.{0,1000}?(https?:\/\/[^"\\\s]+)/i,
+    ];
+
+    for (
+      const pattern of
+        patterns
     ) {
-      console.error(
-        "Google News resolved URL marker not found"
-      );
-
-      return null;
-    }
-
-    const start =
-      markerIndex +
-      marker.length;
-
-    const end =
-      resolverText.indexOf(
-        '\\",',
-        start
-      );
-
-    if (end === -1) {
-      return null;
-    }
-
-    const resolvedUrl =
-      resolverText
-        .slice(
-          start,
-          end
-        )
-        .replace(
-          /\\"/g,
-          '"'
+      const match =
+        responseText.match(
+          pattern
         );
 
-    if (
-      !isValidHttpUrl(
-        resolvedUrl
-      )
-    ) {
-      return null;
+      if (
+        !match?.[1]
+      ) {
+        continue;
+      }
+
+      const candidate =
+        match[1]
+          .replace(
+            /\\"/g,
+            '"'
+          )
+          .replace(
+            /\\u0026/g,
+            "&"
+          )
+          .trim();
+
+      if (
+        isValidHttpUrl(
+          candidate
+        ) &&
+        !isGoogleNewsUrl(
+          candidate
+        )
+      ) {
+        return candidate;
+      }
     }
 
-    if (
-      isGoogleNewsUrl(
-        resolvedUrl
-      )
-    ) {
-      return null;
-    }
+    console.error(
+      "Google News publisher URL not found in batchexecute response"
+    );
 
-    return resolvedUrl;
+    return null;
   } catch (error) {
     console.error(
       "Google News URL resolver error:",
@@ -1007,6 +1063,10 @@ async function resolveGoogleNewsUrl(
     return null;
   }
 }
+
+/* =====================================================
+   ARTICLE METADATA
+   ===================================================== */
 
 async function getArticleMetadata(
   articleUrl: string
@@ -1044,6 +1104,7 @@ async function getArticleMetadata(
           },
 
           cache: "no-store",
+
           redirect: "follow",
 
           signal:
@@ -1144,6 +1205,10 @@ async function getArticleMetadata(
     };
   }
 }
+
+/* =====================================================
+   RELATED NEWS
+   ===================================================== */
 
 async function getRelatedNews(
   keyword: string
@@ -1279,8 +1344,8 @@ async function getRelatedNews(
       )
     ) {
       /*
-       * CARA 1:
-       * Coba redirect langsung.
+       * Resolver 1:
+       * Redirect biasa.
        */
       publisherUrl =
         await resolveNewsRedirect(
@@ -1288,9 +1353,8 @@ async function getRelatedNews(
         );
 
       /*
-       * CARA 2:
-       * Kalau gagal, gunakan resolver
-       * batchexecute yang sudah ada.
+       * Resolver 2:
+       * Decoder Google News.
        */
       if (!publisherUrl) {
         publisherUrl =
@@ -1346,12 +1410,19 @@ async function getRelatedNews(
       "News result:",
       {
         keyword,
+
         rssHeadline,
-        title: finalTitle,
+
+        title:
+          finalTitle,
+
         source,
+
         googleNewsLink,
+
         publisherUrl:
           finalArticleUrl,
+
         hasSummary:
           Boolean(
             articleSummary
@@ -1388,6 +1459,10 @@ async function getRelatedNews(
     };
   }
 }
+
+/* =====================================================
+   TRAFFIC / RANKING
+   ===================================================== */
 
 async function calculateTrafficGrowth(
   trendId: string,
@@ -1543,6 +1618,10 @@ async function calculateRisingScore(
   };
 }
 
+/* =====================================================
+   GET API
+   ===================================================== */
+
 export async function GET() {
   try {
     const googleTrends =
@@ -1561,6 +1640,10 @@ export async function GET() {
       googleTrends.length > 0
         ? googleTrends
         : null;
+
+    /* =================================================
+       SUPABASE FALLBACK
+       ================================================= */
 
     if (!rawTrends) {
       const {
@@ -1698,6 +1781,10 @@ export async function GET() {
       });
     }
 
+    /* =================================================
+       NORMALIZE GOOGLE TRENDS
+       ================================================= */
+
     const normalized =
       rawTrends
         .map(
@@ -1732,6 +1819,7 @@ export async function GET() {
 
             return {
               keyword,
+
               title,
 
               traffic:
@@ -1776,6 +1864,10 @@ export async function GET() {
         (item) =>
           item.keyword
       );
+
+    /* =================================================
+       EXISTING DATABASE ROWS
+       ================================================= */
 
     const {
       data: existingRows,
@@ -1850,6 +1942,10 @@ export async function GET() {
 
     let inserted = 0;
     let updated = 0;
+
+    /* =================================================
+       PREPARE DATABASE ROWS
+       ================================================= */
 
     for (
       const item of
@@ -1930,8 +2026,8 @@ export async function GET() {
           null,
 
         /*
-         * Pertahankan summary lama jika fetch
-         * berita terbaru gagal mengambil summary.
+         * Jangan hapus summary lama jika
+         * Google News tidak mengembalikan summary.
          */
         news_summary:
           news.summary ??
@@ -1944,8 +2040,8 @@ export async function GET() {
           null,
 
         /*
-         * Pertahankan URL publisher lama jika
-         * resolver berita terbaru gagal.
+         * Jangan hapus URL publisher lama jika
+         * resolver Google News gagal.
          */
         news_url:
           news.url ??
@@ -1979,6 +2075,10 @@ export async function GET() {
       }
     }
 
+    /* =================================================
+       UPSERT
+       ================================================= */
+
     if (
       preparedRows.length >
       0
@@ -2001,6 +2101,10 @@ export async function GET() {
         throw upsertError;
       }
     }
+
+    /* =================================================
+       READ SAVED ROWS
+       ================================================= */
 
     const {
       data: savedRows,
@@ -2056,6 +2160,10 @@ export async function GET() {
 
     const fastestRising:
       FastestRising[] = [];
+
+    /* =================================================
+       SNAPSHOTS + FASTEST RISING
+       ================================================= */
 
     for (
       const row of
@@ -2217,6 +2325,10 @@ export async function GET() {
         b.risingScore -
         a.risingScore
     );
+
+    /* =================================================
+       FINAL RESPONSE
+       ================================================= */
 
     const trends =
       savedTrendRows.map(
