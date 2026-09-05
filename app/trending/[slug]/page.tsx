@@ -1,3 +1,4 @@
+
 import Link from "next/link";
 import { Metadata } from "next";
 import { supabaseServer } from "@/lib/supabase-server";
@@ -189,7 +190,7 @@ export async function generateMetadata({
 
   const description =
     trend.news_summary ??
-    `Lihat informasi trend ${trend.title}, RAMAI Score, traffic, posisi trending, dan berita terkait di RAMAIHARI.`;
+    `Pantau trend ${trend.title} di Google Indonesia. Lihat RAMAI Score, traffic, posisi trending, pergerakan ranking, dan berita terkait di RAMAIHARI.`;
 
   const canonicalUrl =
     `https://ramaihari.com/trending/${encodeURIComponent(
@@ -351,16 +352,42 @@ export default async function TrendDetailPage({
     trend.source ??
     "Sumber berita";
 
+  // Hanya gunakan URL artikel publisher.
+  // Jangan fallback ke source_url karena source_url
+  // bisa berupa URL Google Trends.
   const newsUrl =
-    trend.news_url ??
-    trend.source_url;
+    trend.news_url;
 
   const hasNews =
     Boolean(
+      trend.news_title ||
       trend.news_summary ||
-      newsTitle ||
-      newsUrl
+      trend.news_url
     );
+
+  const trendExplanation =
+    trend.news_summary
+      ? `${trend.news_title ?? trend.title} menjadi berita yang berkaitan dengan meningkatnya perhatian terhadap topik ${trend.title} di Google Indonesia.`
+      : `Topik ${trend.title} sedang masuk dalam daftar trend Google Indonesia dengan posisi #${
+          trend.trend_rank ?? "-"
+        }. RAMAIHARI mencatat traffic ${
+          trend.traffic ?? "-"
+        } dan RAMAI Score ${score} untuk menunjukkan tingkat perhatian terhadap topik ini.`;
+
+  const movementText =
+    rankChange > 0
+      ? `Dalam riwayat pemantauan terbaru, topik ini naik ${rankChange} peringkat dari posisi sebelumnya.`
+      : rankChange < 0
+      ? `Dalam riwayat pemantauan terbaru, topik ini turun ${Math.abs(
+          rankChange
+        )} peringkat dari posisi sebelumnya.`
+      : "Dalam riwayat pemantauan terbaru, posisi topik ini relatif stabil.";
+
+  const latestSnapshots =
+    snapshots
+      .slice()
+      .reverse()
+      .slice(0, 10);
 
   return (
     <main className="min-h-screen bg-zinc-50 text-zinc-900">
@@ -617,9 +644,11 @@ export default async function TrendDetailPage({
               <div className="mt-6 rounded-2xl bg-zinc-50 p-5">
 
                 <p className="text-sm leading-6 text-zinc-500">
-                  Berita ini menjadi salah satu
-                  artikel yang berkaitan dengan
-                  trend yang sedang ramai.
+                  Ringkasan artikel belum tersedia
+                  dari sumber berita. RAMAIHARI tetap
+                  menampilkan judul, sumber, tanggal,
+                  dan data trend yang berkaitan dengan
+                  topik ini.
                 </p>
 
               </div>
@@ -659,15 +688,32 @@ export default async function TrendDetailPage({
             Kenapa {trend.title} sedang ramai?
           </h2>
 
-          <p className="mt-4 max-w-4xl text-base leading-7 text-zinc-600">
-            Topik <strong>{trend.title}</strong>{" "}
-            sedang mendapatkan perhatian tinggi
-            di pencarian Google Indonesia.
-            RAMAIHARI memantau posisi, traffic,
-            dan pergerakan trend tersebut untuk
-            menunjukkan seberapa ramai topik ini
-            dibandingkan trend lainnya.
-          </p>
+          <div className="mt-4 max-w-4xl space-y-4 text-base leading-7 text-zinc-600">
+
+            <p>
+              {trendExplanation}
+            </p>
+
+            <p>
+              {movementText}
+            </p>
+
+            {trend.news_title && (
+              <p>
+                Berita terkait yang tercatat
+                berasal dari{" "}
+                <strong>
+                  {newsSource}
+                </strong>
+                , dengan judul{" "}
+                <strong>
+                  {trend.news_title}
+                </strong>
+                .
+              </p>
+            )}
+
+          </div>
 
           <div className="mt-6 grid gap-4 md:grid-cols-3">
 
@@ -729,8 +775,8 @@ export default async function TrendDetailPage({
             </h2>
 
             <p className="mt-2 text-zinc-500">
-              Perubahan posisi trend yang
-              tercatat oleh RAMAIHARI.
+              Perubahan posisi trend terbaru
+              yang tercatat oleh RAMAIHARI.
             </p>
 
           </div>
@@ -740,12 +786,10 @@ export default async function TrendDetailPage({
               Belum ada riwayat snapshot.
             </div>
           ) : (
-            <div className="mt-8 space-y-3">
+            <>
+              <div className="mt-8 space-y-3">
 
-              {snapshots
-                .slice()
-                .reverse()
-                .map(
+                {latestSnapshots.map(
                   (
                     snapshot,
                     index
@@ -794,7 +838,17 @@ export default async function TrendDetailPage({
                   )
                 )}
 
-            </div>
+              </div>
+
+              {snapshots.length > 10 && (
+                <div className="mt-5 text-center text-xs text-zinc-400">
+                  Menampilkan 10 snapshot
+                  terbaru dari{" "}
+                  {snapshots.length} snapshot
+                  yang tercatat.
+                </div>
+              )}
+            </>
           )}
 
         </section>
@@ -826,3 +880,4 @@ export default async function TrendDetailPage({
     </main>
   );
 }
+
