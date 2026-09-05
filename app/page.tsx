@@ -477,26 +477,6 @@ export default function Home() {
                   <div className="grid gap-4 md:grid-cols-2">
                     {filteredTrends.map(
                       (trend) => (
-
-                        /*
-                         * =================================================
-                         * KARTU TREND SEKARANG MENJADI LINK DETAIL
-                         *
-                         * INI BAGIAN PENTING.
-                         *
-                         * Sebelumnya kartu hanya <article>.
-                         * Sekarang kartu dibungkus <a>.
-                         *
-                         * Contoh:
-                         * keyword = "betis vs madrid"
-                         *
-                         * hasil URL:
-                         * /trending/betis%20vs%20madrid
-                         *
-                         * Jadi ketika kartu diklik,
-                         * user masuk ke halaman detail trend.
-                         * =================================================
-                         */
                         <a
                           key={
                             trend.keyword
@@ -947,6 +927,11 @@ export default function Home() {
             Data trending bersumber dari
             Google Trends.
           </p>
+
+          {/* COPYRIGHT / CREATOR */}
+          <div className="flex justify-end pt-2 text-xs text-zinc-400">
+            Imbaa jr
+          </div>
 
         </div>
       </footer>
